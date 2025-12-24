@@ -8,6 +8,7 @@ import { BusinessProvider } from "@/contexts/BusinessContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import Login from "@/pages/Login";
+import Dashboard from "@/pages/Dashboard";
 import Conversations from "@/pages/Conversations";
 import Templates from "@/pages/Templates";
 import NotFound from "@/pages/NotFound";
@@ -31,6 +32,14 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/"
                 element={

@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
+  token: string | null;
   login: (token: string) => void;
   logout: () => void;
 }
@@ -10,28 +11,30 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("auth_token");
-    setIsAuthenticated(!!token);
+    const storedToken = sessionStorage.getItem("auth_token");
+    setToken(storedToken);
     setIsLoading(false);
   }, []);
 
-  const login = (token: string) => {
-    localStorage.setItem("auth_token", token);
-    setIsAuthenticated(true);
+  const login = (newToken: string) => {
+    sessionStorage.setItem("auth_token", newToken);
+    setToken(newToken);
   };
 
   const logout = () => {
-    localStorage.removeItem("auth_token");
-    setIsAuthenticated(false);
+    sessionStorage.removeItem("auth_token");
+    setToken(null);
     window.location.href = "/login";
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, login, logout }}>
+    <AuthContext.Provider
+      value={{ isAuthenticated: !!token, isLoading, token, login, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
