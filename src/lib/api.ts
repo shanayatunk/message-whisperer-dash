@@ -11,7 +11,7 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = localStorage.getItem("auth_token");
+  const token = sessionStorage.getItem("auth_token");
   
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -46,16 +46,22 @@ export async function apiRequest<T>(
   return response.json();
 }
 
-export async function login(email: string, password: string): Promise<{ access_token: string }> {
-  const response = await fetch(`${API_BASE}/auth/login`, {
+export async function login(
+  username: string,
+  password: string
+): Promise<{ access_token: string; token_type: string }> {
+  const formData = new URLSearchParams();
+  formData.append("username", username);
+  formData.append("password", password);
+
+  const response = await fetch(`${API_BASE}/api/v1/auth/access-token`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: formData.toString(),
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: "Login failed" }));
-    throw new ApiError(response.status, errorData.detail || "Login failed");
+    throw new ApiError(response.status, "Invalid credentials");
   }
 
   return response.json();
