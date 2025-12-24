@@ -50,18 +50,15 @@ export async function login(
   username: string,
   password: string
 ): Promise<{ access_token: string; token_type: string }> {
-  const formData = new URLSearchParams();
-  formData.append("username", username);
-  formData.append("password", password);
-
-  const response = await fetch(`${API_BASE}/api/v1/auth/access-token`, {
+  const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: formData.toString(),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
   });
 
   if (!response.ok) {
-    throw new ApiError(response.status, "Invalid credentials");
+    const errorData = await response.json().catch(() => ({ detail: "Invalid credentials" }));
+    throw new ApiError(response.status, errorData.detail || "Invalid credentials");
   }
 
   return response.json();
