@@ -8,9 +8,9 @@ import { BusinessProvider } from "@/contexts/BusinessContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import Login from "@/pages/Login";
-import Dashboard from "@/pages/Dashboard";
+import DashboardHome from "@/pages/DashboardHome";
 import Conversations from "@/pages/Conversations";
-import Templates from "@/pages/Templates";
+import Broadcasts from "@/pages/Broadcasts";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -33,15 +33,27 @@ const App = () => (
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route
-                path="/dashboard"
+                path="/"
                 element={
                   <ProtectedRoute>
-                    <Dashboard />
+                    <DashboardLayout>
+                      <DashboardHome />
+                    </DashboardLayout>
                   </ProtectedRoute>
                 }
               />
               <Route
-                path="/"
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout>
+                      <DashboardHome />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/conversations"
                 element={
                   <ProtectedRoute>
                     <DashboardLayout>
@@ -51,11 +63,11 @@ const App = () => (
                 }
               />
               <Route
-                path="/templates"
+                path="/broadcasts"
                 element={
                   <ProtectedRoute>
                     <DashboardLayout>
-                      <Templates />
+                      <Broadcasts />
                     </DashboardLayout>
                   </ProtectedRoute>
                 }
