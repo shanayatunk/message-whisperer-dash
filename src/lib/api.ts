@@ -28,7 +28,7 @@ export async function apiRequest<T>(
   });
 
   if (response.status === 401) {
-    localStorage.removeItem("auth_token");
+    sessionStorage.removeItem("auth_token");
     window.location.href = "/login";
     throw new ApiError(401, "Unauthorized");
   }
