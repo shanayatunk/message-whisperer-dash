@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -11,18 +11,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { MessageSquare, FileText, LogOut, Menu } from "lucide-react";
-import { useState } from "react";
+import { LayoutDashboard, MessageSquare, Radio, LogOut, Menu } from "lucide-react";
 
 const navItems = [
-  { path: "/", label: "Conversations", icon: MessageSquare },
-  { path: "/templates", label: "Templates", icon: FileText },
+  { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/conversations", label: "Conversations", icon: MessageSquare },
+  { path: "/broadcasts", label: "Broadcasts", icon: Radio },
 ];
 
 const businesses = [
   { id: "feelori", name: "Feelori" },
-  { id: "business_2", name: "Business 2" },
-  { id: "business_3", name: "Business 3" },
+  { id: "golden_collections", name: "Golden Collections" },
 ];
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
@@ -37,7 +36,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       <aside
         className={cn(
           "bg-sidebar-background border-r border-sidebar-border transition-all duration-200 flex flex-col",
-          sidebarOpen ? "w-48" : "w-14"
+          sidebarOpen ? "w-52" : "w-14"
         )}
       >
         {/* Logo */}
@@ -45,13 +44,13 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           <MessageSquare className="h-5 w-5 text-sidebar-primary shrink-0" />
           {sidebarOpen && (
             <span className="ml-2 font-semibold text-sm text-sidebar-foreground truncate">
-              Whisperer
+              Message Whisperer
             </span>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-2 px-2 space-y-1">
+        <nav className="flex-1 py-3 px-2 space-y-1">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -59,7 +58,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors",
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                   isActive
                     ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                     : "text-sidebar-foreground hover:bg-sidebar-accent/50"
@@ -71,22 +70,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-
-        {/* Logout */}
-        <div className="p-2 border-t border-sidebar-border">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={logout}
-            className={cn(
-              "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent/50",
-              !sidebarOpen && "justify-center px-2"
-            )}
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            {sidebarOpen && <span className="ml-2">Logout</span>}
-          </Button>
-        </div>
       </aside>
 
       {/* Main Content */}
@@ -106,17 +89,28 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
           {/* Business Selector */}
           <Select value={businessId} onValueChange={setBusinessId}>
-            <SelectTrigger className="w-36 h-8 text-xs">
+            <SelectTrigger className="w-44 h-8 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-popover">
               {businesses.map((b) => (
-                <SelectItem key={b.id} value={b.id} className="text-xs">
+                <SelectItem key={b.id} value={b.id} className="text-sm">
                   {b.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+
+          {/* Logout Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={logout}
+            className="h-8 gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Logout</span>
+          </Button>
         </header>
 
         {/* Page Content */}
