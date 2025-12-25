@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Copy, Check, Play, Trash2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Copy, Check, Play, Trash2, RefreshCw, Server } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getRequestLog, clearRequestLog, subscribeToRequestLog, RequestLogEntry } from "@/lib/requestLogger";
+import { supabase } from "@/integrations/supabase/client";
 
 const BUILD_VERSION = import.meta.env.VITE_BUILD_VERSION || "dev";
 const BUILD_TIME = new Date().toISOString();
@@ -21,6 +22,22 @@ interface ProbeResult {
   conclusion?: string;
 }
 
+interface ServerProbeResult {
+  targetUrl: string;
+  steps: Array<{
+    step: string;
+    url: string;
+    status?: number;
+    statusText?: string;
+    headers?: Record<string, string>;
+    error?: string;
+    redirected?: boolean;
+    finalUrl?: string;
+  }>;
+  conclusion: string;
+  error?: string;
+}
+
 export default function Debug() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState<string | null>(null);
@@ -29,10 +46,43 @@ export default function Debug() {
   const [probeResults, setProbeResults] = useState<ProbeResult[]>([]);
   const [probing, setProbing] = useState(false);
   const [requestLog, setRequestLog] = useState<RequestLogEntry[]>(getRequestLog());
+  const [serverProbeResult, setServerProbeResult] = useState<ServerProbeResult | null>(null);
+  const [serverProbing, setServerProbing] = useState(false);
 
   useEffect(() => {
     return subscribeToRequestLog(setRequestLog);
   }, []);
+
+  const runServerProbe = async () => {
+    setServerProbing(true);
+    setServerProbeResult(null);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('test-backend', {
+        body: { url: `${API_BASE}/api/v1/conversations/?business_id=feelori` }
+      });
+      
+      if (error) {
+        setServerProbeResult({ 
+          targetUrl: '', 
+          steps: [], 
+          conclusion: '', 
+          error: error.message 
+        });
+      } else {
+        setServerProbeResult(data);
+      }
+    } catch (err) {
+      setServerProbeResult({ 
+        targetUrl: '', 
+        steps: [], 
+        conclusion: '', 
+        error: err instanceof Error ? err.message : String(err) 
+      });
+    }
+    
+    setServerProbing(false);
+  };
 
   const copyToClipboard = (key: string, value: string) => {
     navigator.clipboard.writeText(value);
@@ -251,6 +301,68 @@ export default function Debug() {
             <code className="block bg-muted p-3 rounded text-sm break-all">
               {API_BASE}
             </code>
+          </CardContent>
+        </Card>
+
+        {/* Server-Side Probe */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Server-Side Probe (bypasses CORS)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button onClick={runServerProbe} disabled={serverProbing} className="w-full">
+              <Server className="h-4 w-4 mr-2" />
+              {serverProbing ? "Testing..." : "Test from Server"}
+            </Button>
+            
+            {serverProbeResult && (
+              <div className="space-y-2 text-sm">
+                {serverProbeResult.error ? (
+                  <div className="bg-destructive/10 p-3 rounded text-destructive">
+                    Error: {serverProbeResult.error}
+                  </div>
+                ) : (
+                  <>
+                    <div className="bg-muted p-3 rounded">
+                      <div className="font-medium">Target URL</div>
+                      <code className="text-xs break-all">{serverProbeResult.targetUrl}</code>
+                    </div>
+                    
+                    {serverProbeResult.steps.map((step, i) => (
+                      <div key={i} className="bg-muted p-3 rounded space-y-1">
+                        <div className="font-medium">{step.step}</div>
+                        {step.status !== undefined && (
+                          <div>Status: <Badge variant={step.status < 400 ? "secondary" : "destructive"}>{step.status} {step.statusText}</Badge></div>
+                        )}
+                        {step.redirected && <div className="text-amber-600">⚠️ Redirected</div>}
+                        {step.finalUrl && step.finalUrl !== step.url && (
+                          <div>Final URL: <code className="text-xs">{step.finalUrl}</code></div>
+                        )}
+                        {step.error && <div className="text-destructive">Error: {step.error}</div>}
+                        {step.headers && (
+                          <details className="text-xs">
+                            <summary className="cursor-pointer text-muted-foreground">Headers</summary>
+                            <pre className="mt-1 overflow-auto max-h-32 bg-background p-2 rounded">
+                              {JSON.stringify(step.headers, null, 2)}
+                            </pre>
+                          </details>
+                        )}
+                      </div>
+                    ))}
+                    
+                    <div className={`p-3 rounded font-medium ${
+                      serverProbeResult.conclusion.includes('BACKEND ISSUE') 
+                        ? 'bg-destructive/10 text-destructive' 
+                        : serverProbeResult.conclusion.includes('CORS')
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                        : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                    }`}>
+                      {serverProbeResult.conclusion}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
