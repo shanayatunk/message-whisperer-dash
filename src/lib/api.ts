@@ -1,5 +1,16 @@
-// Use VITE_API_URL environment variable, fallback to staging
-const API_BASE = import.meta.env.VITE_API_URL || "https://staging-api.feelori.com";
+// Force HTTPS for API base URL
+const resolveApiBase = (): string => {
+  let base = (import.meta.env.VITE_API_URL as string) || "https://staging-api.feelori.com";
+  base = base.trim();
+  // Force HTTPS to prevent Mixed Content errors
+  if (base.startsWith("http://")) {
+    base = base.replace("http://", "https://");
+  }
+  // Remove trailing slash to avoid double slashes
+  return base.replace(/\/+$/, "");
+};
+
+const API_BASE = resolveApiBase();
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
