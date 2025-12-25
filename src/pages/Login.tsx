@@ -9,25 +9,33 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, MessageSquare } from "lucide-react";
 import { z } from "zod";
 
+/**
+ * Backend reality:
+ * - Username is NOT validated
+ * - Password is the only real credential
+ * - JWT subject is always "admin"
+ *
+ * This schema intentionally keeps username simple.
+ */
 const loginSchema = z.object({
-  email: z
+  username: z
     .string()
     .trim()
-    .min(1, "Email is required")
-    .email("Invalid email address")
-    .max(255, "Email must be less than 255 characters"),
+    .min(1, "Username is required")
+    .max(255),
   password: z
     .string()
     .min(1, "Password is required")
-    .max(128, "Password must be less than 128 characters"),
+    .max(128),
 });
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -36,12 +44,11 @@ export default function Login() {
     setError(null);
     setFieldErrors({});
 
-    // Validate inputs
-    const result = loginSchema.safeParse({ email, password });
+    const result = loginSchema.safeParse({ username, password });
     if (!result.success) {
-      const errors: { email?: string; password?: string } = {};
+      const errors: { username?: string; password?: string } = {};
       result.error.errors.forEach((err) => {
-        if (err.path[0] === "email") errors.email = err.message;
+        if (err.path[0] === "username") errors.username = err.message;
         if (err.path[0] === "password") errors.password = err.message;
       });
       setFieldErrors(errors);
@@ -51,8 +58,15 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const response = await apiLogin(result.data.email, result.data.password);
+      const response = await apiLogin(
+        result.data.username,
+        result.data.password
+      );
+
+      // ✅ Store JWT in sessionStorage via AuthContext
       login(response.access_token);
+
+      // ✅ Redirect to dashboard
       navigate("/dashboard");
     } catch (err) {
       if (err instanceof ApiError) {
@@ -71,10 +85,15 @@ export default function Login() {
         <CardHeader className="text-center pb-4">
           <div className="flex items-center justify-center gap-2 mb-2">
             <MessageSquare className="h-6 w-6 text-primary" />
-            <CardTitle className="text-xl font-bold">Message Whisperer</CardTitle>
+            <CardTitle className="text-xl font-bold">
+              Message Whisperer
+            </CardTitle>
           </div>
-          <p className="text-sm text-muted-foreground">WhatsApp Operations Dashboard</p>
+          <p className="text-sm text-muted-foreground">
+            WhatsApp Operations Dashboard
+          </p>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
@@ -84,21 +103,22 @@ export default function Login() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">
-                Email
+              <Label htmlFor="username" className="text-sm font-medium">
+                Username
               </Label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="admin"
                 required
                 disabled={isLoading}
-                className={fieldErrors.email ? "border-destructive" : ""}
+                className={fieldErrors.username ? "border-destructive" : ""}
               />
-              {fieldErrors.email && (
-                <p className="text-xs text-destructive">{fieldErrors.email}</p>
+              {fieldErrors.username && (
+                <p className="text-xs text-destructive">
+                  {fieldErrors.username}
+                </p>
               )}
             </div>
 
@@ -117,7 +137,9 @@ export default function Login() {
                 className={fieldErrors.password ? "border-destructive" : ""}
               />
               {fieldErrors.password && (
-                <p className="text-xs text-destructive">{fieldErrors.password}</p>
+                <p className="text-xs text-destructive">
+                  {fieldErrors.password}
+                </p>
               )}
             </div>
 
