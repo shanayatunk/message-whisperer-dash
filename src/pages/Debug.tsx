@@ -3,20 +3,193 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Copy, Check } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Copy, Check, Play, Trash2, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getRequestLog, clearRequestLog, subscribeToRequestLog, RequestLogEntry } from "@/lib/requestLogger";
 
 const BUILD_VERSION = import.meta.env.VITE_BUILD_VERSION || "dev";
 const BUILD_TIME = new Date().toISOString();
 
+interface ProbeResult {
+  step: string;
+  url: string;
+  success?: boolean;
+  error?: string;
+  responseType?: string;
+  status?: number;
+  redirected?: boolean;
+  conclusion?: string;
+}
+
 export default function Debug() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState<string | null>(null);
+  const [debugApi, setDebugApi] = useState(sessionStorage.getItem("debug_api") === "1");
+  const [debugFetch, setDebugFetch] = useState(sessionStorage.getItem("debug_fetch") === "1");
+  const [probeResults, setProbeResults] = useState<ProbeResult[]>([]);
+  const [probing, setProbing] = useState(false);
+  const [requestLog, setRequestLog] = useState<RequestLogEntry[]>(getRequestLog());
+
+  useEffect(() => {
+    return subscribeToRequestLog(setRequestLog);
+  }, []);
 
   const copyToClipboard = (key: string, value: string) => {
     navigator.clipboard.writeText(value);
     setCopied(key);
     setTimeout(() => setCopied(null), 1500);
+  };
+
+  const toggleDebugApi = () => {
+    const newValue = !debugApi;
+    if (newValue) {
+      sessionStorage.setItem("debug_api", "1");
+    } else {
+      sessionStorage.removeItem("debug_api");
+    }
+    setDebugApi(newValue);
+  };
+
+  const toggleDebugFetch = () => {
+    const newValue = !debugFetch;
+    if (newValue) {
+      sessionStorage.setItem("debug_fetch", "1");
+    } else {
+      sessionStorage.removeItem("debug_fetch");
+    }
+    setDebugFetch(newValue);
+  };
+
+  const runNetworkProbe = async () => {
+    setProbing(true);
+    setProbeResults([]);
+    const results: ProbeResult[] = [];
+
+    const testUrl = `${API_BASE}/api/v1/conversations/?business_id=feelori`;
+    
+    // Step 1: Show the URL we're testing
+    results.push({
+      step: "1. Target URL",
+      url: testUrl,
+    });
+    setProbeResults([...results]);
+
+    // Step 2: Manual redirect check
+    try {
+      const manualResp = await fetch(testUrl, {
+        method: "GET",
+        redirect: "manual",
+        headers: { "Content-Type": "application/json" },
+      });
+      
+      results.push({
+        step: "2. Redirect check (manual)",
+        url: testUrl,
+        responseType: manualResp.type,
+        status: manualResp.status,
+        success: manualResp.type !== "opaqueredirect",
+        conclusion: manualResp.type === "opaqueredirect" 
+          ? "⚠️ Server returned a redirect (possibly HTTP→HTTPS or vice versa)"
+          : "✓ No redirect detected",
+      });
+    } catch (err) {
+      results.push({
+        step: "2. Redirect check (manual)",
+        url: testUrl,
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+        conclusion: "❌ Request blocked (likely Mixed Content)",
+      });
+    }
+    setProbeResults([...results]);
+
+    // Step 3: Normal fetch
+    try {
+      const token = sessionStorage.getItem("auth_token");
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const normalResp = await fetch(testUrl, {
+        method: "GET",
+        headers,
+      });
+
+      results.push({
+        step: "3. Normal fetch",
+        url: testUrl,
+        status: normalResp.status,
+        redirected: normalResp.redirected,
+        success: normalResp.ok,
+        conclusion: normalResp.ok 
+          ? "✓ Request succeeded" 
+          : `⚠️ Request failed with status ${normalResp.status}`,
+      });
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const isMixedContent = errMsg.toLowerCase().includes("mixed") || 
+                            errMsg.toLowerCase().includes("blocked") ||
+                            errMsg.toLowerCase().includes("insecure");
+      
+      results.push({
+        step: "3. Normal fetch",
+        url: testUrl,
+        success: false,
+        error: errMsg,
+        conclusion: isMixedContent 
+          ? "❌ Mixed Content blocked - browser rejected HTTP request from HTTPS page"
+          : `❌ Request failed: ${errMsg}`,
+      });
+    }
+    setProbeResults([...results]);
+
+    // Step 4: Test with explicit HTTP to confirm blocking
+    const httpUrl = testUrl.replace("https://", "http://");
+    if (httpUrl !== testUrl) {
+      try {
+        await fetch(httpUrl, { method: "HEAD" });
+        results.push({
+          step: "4. HTTP test (should fail)",
+          url: httpUrl,
+          success: false,
+          conclusion: "⚠️ HTTP request was NOT blocked - unexpected!",
+        });
+      } catch (err) {
+        results.push({
+          step: "4. HTTP test (should fail)",
+          url: httpUrl,
+          success: true,
+          error: err instanceof Error ? err.message : String(err),
+          conclusion: "✓ HTTP correctly blocked by browser",
+        });
+      }
+      setProbeResults([...results]);
+    }
+
+    // Final diagnosis
+    const hasRedirect = results.some(r => r.responseType === "opaqueredirect");
+    const hasMixedContentError = results.some(r => 
+      r.error?.toLowerCase().includes("mixed") || 
+      r.error?.toLowerCase().includes("blocked")
+    );
+
+    let finalConclusion = "";
+    if (hasMixedContentError && !hasRedirect) {
+      finalConclusion = "🔴 DIAGNOSIS: Something is making HTTP requests. Enable debug flags and check /conversations.";
+    } else if (hasRedirect) {
+      finalConclusion = "🔴 DIAGNOSIS: Backend is redirecting. Check server/proxy configuration.";
+    } else if (results.some(r => r.step === "3. Normal fetch" && r.success)) {
+      finalConclusion = "🟢 DIAGNOSIS: API requests work correctly from this page.";
+    } else {
+      finalConclusion = "🟡 DIAGNOSIS: Inconclusive. Check auth token and enable debug flags.";
+    }
+
+    results.push({
+      step: "FINAL",
+      url: "",
+      conclusion: finalConclusion,
+    });
+    setProbeResults([...results]);
+    setProbing(false);
   };
 
   const envVars = [
@@ -81,6 +254,140 @@ export default function Debug() {
           </CardContent>
         </Card>
 
+        {/* Network Probe */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Network Probe</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button onClick={runNetworkProbe} disabled={probing} className="w-full">
+              <Play className="h-4 w-4 mr-2" />
+              {probing ? "Testing..." : "Test Conversations Request"}
+            </Button>
+            
+            {probeResults.length > 0 && (
+              <div className="space-y-2 text-sm">
+                {probeResults.map((result, i) => (
+                  <div key={i} className="bg-muted p-3 rounded space-y-1">
+                    <div className="font-medium">{result.step}</div>
+                    {result.url && (
+                      <code className="text-xs break-all block text-muted-foreground">{result.url}</code>
+                    )}
+                    {result.responseType && (
+                      <div>Response type: <code>{result.responseType}</code></div>
+                    )}
+                    {result.status !== undefined && (
+                      <div>Status: <code>{result.status}</code></div>
+                    )}
+                    {result.redirected !== undefined && (
+                      <div>Redirected: <code>{String(result.redirected)}</code></div>
+                    )}
+                    {result.error && (
+                      <div className="text-destructive text-xs">Error: {result.error}</div>
+                    )}
+                    {result.conclusion && (
+                      <div className={`font-medium ${result.step === "FINAL" ? "text-base pt-2" : ""}`}>
+                        {result.conclusion}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Debug Flags */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Debug Flags</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">debug_api</div>
+                <div className="text-xs text-muted-foreground">Log all API requests</div>
+              </div>
+              <Button 
+                variant={debugApi ? "default" : "outline"} 
+                size="sm"
+                onClick={toggleDebugApi}
+              >
+                {debugApi ? "Enabled" : "Disabled"}
+              </Button>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">debug_fetch</div>
+                <div className="text-xs text-muted-foreground">Intercept all fetch calls</div>
+              </div>
+              <Button 
+                variant={debugFetch ? "default" : "outline"} 
+                size="sm"
+                onClick={toggleDebugFetch}
+              >
+                {debugFetch ? "Enabled" : "Disabled"}
+              </Button>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Reload
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate("/conversations")}>
+                Go to Conversations
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Request Log */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg">Request Log ({requestLog.length})</CardTitle>
+            <Button variant="ghost" size="sm" onClick={clearRequestLog}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {requestLog.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No requests logged yet. Enable debug flags and navigate to other pages.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {requestLog.map((entry) => (
+                  <div 
+                    key={entry.id} 
+                    className={`text-xs p-2 rounded ${
+                      entry.isInsecure 
+                        ? "bg-destructive/10 border border-destructive/30" 
+                        : "bg-muted"
+                    }`}
+                  >
+                    <div className="flex justify-between items-start gap-2">
+                      <code className="break-all flex-1">
+                        {entry.method} {entry.url}
+                      </code>
+                      {entry.status && (
+                        <Badge variant={entry.status < 400 ? "secondary" : "destructive"} className="shrink-0">
+                          {entry.status}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-muted-foreground mt-1">
+                      {new Date(entry.timestamp).toLocaleTimeString()}
+                      {entry.isInsecure && <span className="text-destructive ml-2">⚠️ INSECURE</span>}
+                      {entry.redirected && <span className="ml-2">↪️ redirected</span>}
+                      {entry.error && <span className="text-destructive ml-2">{entry.error}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Environment Variables */}
         <Card>
           <CardHeader>
@@ -112,30 +419,6 @@ export default function Debug() {
                 </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
-
-        {/* Session Storage Debug Flags */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Debug Flags</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">debug_api</span>
-              <Badge variant="outline">
-                {sessionStorage.getItem("debug_api") || "not set"}
-              </Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">debug_fetch</span>
-              <Badge variant="outline">
-                {sessionStorage.getItem("debug_fetch") || "not set"}
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground pt-2">
-              Run in console: <code>sessionStorage.setItem("debug_api", "1")</code> then reload.
-            </p>
           </CardContent>
         </Card>
       </div>

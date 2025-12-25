@@ -1,3 +1,5 @@
+import { logRequest } from "./requestLogger";
+
 // Force HTTPS for API base URL
 const resolveApiBase = (): string => {
   let base =
@@ -54,37 +56,56 @@ export async function apiRequest<T>(
   }
 
   const url = `${API_BASE}${endpoint}`;
+  const method = (options.method ?? "GET").toUpperCase();
+  const isInsecure = url.startsWith("http://");
 
   // Critical debugging for Mixed Content issues
-  if (url.startsWith("http://")) {
+  if (isInsecure) {
     console.error("[api] BLOCKED insecure request URL:", url);
     console.error("[api] Called from:\n", new Error("Insecure API URL").stack);
+    logRequest({ url, method, isInsecure: true, error: "BLOCKED - insecure" });
   } else {
-    debugLog("request", { url, method: options.method ?? "GET" });
+    debugLog("request", { url, method });
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
 
-  if (response.status === 401) {
-    sessionStorage.removeItem("auth_token");
-    window.location.href = "/login";
-    throw new ApiError(401, "Unauthorized");
+    logRequest({
+      url,
+      method,
+      isInsecure,
+      status: response.status,
+      redirected: response.redirected,
+    });
+
+    if (response.status === 401) {
+      sessionStorage.removeItem("auth_token");
+      window.location.href = "/login";
+      throw new ApiError(401, "Unauthorized");
+    }
+
+    if (response.status >= 500) {
+      const errorData = await response.json().catch(() => ({ detail: "Server error" }));
+      throw new ApiError(response.status, errorData.detail || "Server error");
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: "Request failed" }));
+      throw new ApiError(response.status, errorData.detail || "Request failed");
+    }
+
+    return response.json();
+  } catch (err) {
+    if (!(err instanceof ApiError)) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logRequest({ url, method, isInsecure, error: errMsg });
+    }
+    throw err;
   }
-
-  if (response.status >= 500) {
-    const errorData = await response.json().catch(() => ({ detail: "Server error" }));
-    throw new ApiError(response.status, errorData.detail || "Server error");
-  }
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: "Request failed" }));
-    throw new ApiError(response.status, errorData.detail || "Request failed");
-  }
-
-  return response.json();
 }
 
 export async function login(
