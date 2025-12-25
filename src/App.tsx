@@ -12,6 +12,7 @@ import DashboardHome from "@/pages/DashboardHome";
 import Conversations from "@/pages/Conversations";
 import Broadcasts from "@/pages/Broadcasts";
 import NotFound from "@/pages/NotFound";
+import Debug from "@/pages/Debug";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +73,7 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route path="/debug" element={<Debug />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

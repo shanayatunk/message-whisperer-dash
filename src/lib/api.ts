@@ -15,6 +15,7 @@ const resolveApiBase = (): string => {
 };
 
 const API_BASE = resolveApiBase();
+export { API_BASE };
 
 const shouldDebugApi = () =>
   sessionStorage.getItem("debug_api") === "1" || import.meta.env.DEV;
