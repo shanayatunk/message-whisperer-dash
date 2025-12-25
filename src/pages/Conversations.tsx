@@ -46,7 +46,7 @@ export default function Conversations() {
   // Take Over mutation
   const takeOverMutation = useMutation({
     mutationFn: (phoneNumber: string) =>
-      apiRequest("/admin/conversation/takeover", {
+      apiRequest("/api/v1/admin/conversation/takeover", {
         method: "POST",
         body: JSON.stringify({ phone_number: phoneNumber }),
       }),
@@ -63,7 +63,7 @@ export default function Conversations() {
   // Release mutation
   const releaseMutation = useMutation({
     mutationFn: (phoneNumber: string) =>
-      apiRequest("/admin/conversation/release", {
+      apiRequest("/api/v1/admin/conversation/release", {
         method: "POST",
         body: JSON.stringify({ phone_number: phoneNumber }),
       }),

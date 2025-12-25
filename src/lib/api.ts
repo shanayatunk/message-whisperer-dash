@@ -1,4 +1,5 @@
-const API_BASE = "https://staging-api.feelori.com";
+// Use VITE_API_URL environment variable, fallback to staging
+const API_BASE = import.meta.env.VITE_API_URL || "https://staging-api.feelori.com";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
