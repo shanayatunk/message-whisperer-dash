@@ -1,16 +1,34 @@
 // Force HTTPS for API base URL
 const resolveApiBase = (): string => {
-  let base = (import.meta.env.VITE_API_URL as string) || "https://staging-api.feelori.com";
+  let base =
+    (import.meta.env.VITE_API_URL as string) ||
+    "https://staging-api.feelori.com";
   base = base.trim();
+
   // Force HTTPS to prevent Mixed Content errors
   if (base.startsWith("http://")) {
     base = base.replace("http://", "https://");
   }
+
   // Remove trailing slash to avoid double slashes
   return base.replace(/\/+$/, "");
 };
 
 const API_BASE = resolveApiBase();
+
+const shouldDebugApi = () =>
+  sessionStorage.getItem("debug_api") === "1" || import.meta.env.DEV;
+
+const debugLog = (...args: unknown[]) => {
+  if (shouldDebugApi()) console.debug("[api]", ...args);
+};
+
+debugLog("VITE_API_URL:", import.meta.env.VITE_API_URL);
+debugLog("API_BASE:", API_BASE);
+
+if (API_BASE.startsWith("http://")) {
+  console.error("[api] API_BASE is http:// (will cause Mixed Content):", API_BASE);
+}
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -24,7 +42,7 @@ export async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = sessionStorage.getItem("auth_token");
-  
+
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...options.headers,
@@ -34,7 +52,17 @@ export async function apiRequest<T>(
     (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  const url = `${API_BASE}${endpoint}`;
+
+  // Critical debugging for Mixed Content issues
+  if (url.startsWith("http://")) {
+    console.error("[api] BLOCKED insecure request URL:", url);
+    console.error("[api] Called from:\n", new Error("Insecure API URL").stack);
+  } else {
+    debugLog("request", { url, method: options.method ?? "GET" });
+  }
+
+  const response = await fetch(url, {
     ...options,
     headers,
   });
