@@ -1,15 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useBusiness } from "@/contexts/BusinessContext";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, MessageSquare, Radio, LogOut, Menu } from "lucide-react";
 
@@ -19,15 +11,9 @@ const navItems = [
   { path: "/broadcasts", label: "Broadcasts", icon: Radio },
 ];
 
-const businesses = [
-  { id: "feelori", name: "Feelori" },
-  { id: "golden_collections", name: "Golden Collections" },
-];
-
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { logout } = useAuth();
-  const { businessId, setBusinessId } = useBusiness();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (
@@ -86,20 +72,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           </Button>
 
           <div className="flex-1" />
-
-          {/* Business Selector */}
-          <Select value={businessId} onValueChange={setBusinessId}>
-            <SelectTrigger className="w-44 h-8 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-popover">
-              {businesses.map((b) => (
-                <SelectItem key={b.id} value={b.id} className="text-sm">
-                  {b.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
 
           {/* Logout Button */}
           <Button
