@@ -29,7 +29,7 @@ export function TicketCard({ ticket, isSelected, onClick }: TicketCardProps) {
       className={cn(
         "p-3 border-b border-border cursor-pointer transition-colors",
         "hover:bg-muted/50",
-        isSelected && "bg-primary/10 border-l-2 border-l-primary"
+        isSelected && "bg-primary/15 border-l-4 border-l-primary"
       )}
     >
       <div className="flex items-start justify-between gap-2 mb-1">

@@ -51,8 +51,7 @@ export function TicketQueue({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Needs Attention</SelectItem>
-            <SelectItem value="pending">Pending (Bot)</SelectItem>
-            <SelectItem value="human_needed">Human Needed</SelectItem>
+            <SelectItem value="pending">Bot Active</SelectItem>
             <SelectItem value="resolved">Resolved</SelectItem>
           </SelectContent>
         </Select>
