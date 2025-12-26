@@ -4,6 +4,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   token: string | null;
+  login: (token: string) => void;
   logout: () => void;
 }
 
@@ -19,6 +20,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  const login = (newToken: string) => {
+    sessionStorage.setItem("auth_token", newToken);
+    setToken(newToken);
+  };
+
   const logout = () => {
     sessionStorage.removeItem("auth_token");
     setToken(null);
@@ -31,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: Boolean(token),
         isLoading,
         token,
+        login,
         logout,
       }}
     >
