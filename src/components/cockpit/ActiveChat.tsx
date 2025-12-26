@@ -31,7 +31,7 @@ export function ActiveChat({
 }: ActiveChatProps) {
   if (!ticket) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-muted/10">
+      <div className="h-full flex items-center justify-center bg-muted/10">
         <div className="text-center text-muted-foreground">
           <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-30" />
           <p className="text-sm">Select a ticket to start</p>

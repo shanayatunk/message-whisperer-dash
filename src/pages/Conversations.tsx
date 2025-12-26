@@ -136,9 +136,7 @@ export default function Conversations() {
       setOptimisticMessages((prev) => [...prev, newMessage]);
     },
     onSuccess: () => {
-      // Clear optimistic and refetch real messages
-      setOptimisticMessages([]);
-      queryClient.invalidateQueries({ queryKey: ["messages", selectedTicket?._id] });
+      // Rely on optimistic update only - no refetch to prevent double bubble
     },
     onError: (error) => {
       setOptimisticMessages([]);
