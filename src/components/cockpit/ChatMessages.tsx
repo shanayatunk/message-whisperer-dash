@@ -2,6 +2,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef } from "react";
+import { SecureImage } from "./SecureImage";
 
 export interface Message {
   id?: string;
@@ -10,6 +11,7 @@ export interface Message {
   sender: "user" | "agent" | "bot";
   timestamp?: string;
   created_at?: string;
+  image_media_id?: string;
 }
 
 interface ChatMessagesProps {
@@ -75,7 +77,17 @@ export function ChatMessages({ messages, isLoading, isError }: ChatMessagesProps
                     : "bg-primary text-primary-foreground"
                 )}
               >
-                <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                {/* Image first, then text */}
+                {msg.image_media_id && (
+                  <SecureImage
+                    mediaId={msg.image_media_id}
+                    alt="Message attachment"
+                    className="mb-2"
+                  />
+                )}
+                {msg.content && (
+                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                )}
                 {time && (
                   <p className={cn(
                     "text-xs mt-1 opacity-70",
