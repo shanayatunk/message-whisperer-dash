@@ -67,7 +67,7 @@ export default function Login() {
       login(response.access_token);
 
       // ✅ Redirect to dashboard
-      navigate("/dashboard");
+      navigate("/conversations");
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
