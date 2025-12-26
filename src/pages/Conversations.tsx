@@ -1,26 +1,26 @@
+import { useState } from "react";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { apiRequest, ApiError } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { MessageSquare, UserCheck, Bot, Loader2, RefreshCw } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { TicketQueue } from "@/components/cockpit/TicketQueue";
+import { ActiveChat } from "@/components/cockpit/ActiveChat";
+import { Ticket } from "@/components/cockpit/TicketCard";
+import { Message } from "@/components/cockpit/ChatMessages";
 
-interface Conversation {
-  phone_number: string;
-  mode: "bot" | "human";
-  last_message: string;
-  updated_at: string;
+interface TicketsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    tickets: Ticket[];
+  };
+}
+
+interface MessagesResponse {
+  success: boolean;
+  data: {
+    messages: Message[];
+  };
 }
 
 export default function Conversations() {
@@ -28,209 +28,167 @@ export default function Conversations() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch conversations
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [filter, setFilter] = useState("all");
+  const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
+
+  // Fetch tickets
   const {
-    data: conversations,
-    isLoading,
-    isError,
-    refetch,
-    isFetching,
+    data: ticketsData,
+    isLoading: isLoadingTickets,
+    isError: isTicketsError,
+    refetch: refetchTickets,
+    isFetching: isFetchingTickets,
   } = useQuery({
-    queryKey: ["conversations", businessId],
-    queryFn: () =>
-      apiRequest<Conversation[]>(
-        `/api/v1/conversations?business_id=${encodeURIComponent(businessId)}`
-      ),
+    queryKey: ["tickets", businessId, filter],
+    queryFn: async () => {
+      const params = new URLSearchParams({ business_id: businessId });
+      if (filter !== "all") {
+        params.append("status", filter);
+      }
+      const response = await apiRequest<TicketsResponse>(`/api/v1/conversations?${params}`);
+      return response.data.tickets;
+    },
   });
 
-  // Take Over mutation
-  const takeOverMutation = useMutation({
-    mutationFn: (phoneNumber: string) =>
-      apiRequest("/api/v1/admin/conversation/takeover", {
+  // Fetch messages for selected ticket
+  const {
+    data: messagesData,
+    isLoading: isLoadingMessages,
+    isError: isMessagesError,
+  } = useQuery({
+    queryKey: ["messages", selectedTicket?._id],
+    queryFn: async () => {
+      if (!selectedTicket) return [];
+      const response = await apiRequest<MessagesResponse>(
+        `/api/v1/conversations/${selectedTicket._id}/messages`
+      );
+      return response.data.messages;
+    },
+    enabled: !!selectedTicket,
+  });
+
+  // Combine fetched messages with optimistic ones
+  const allMessages = [...(messagesData || []), ...optimisticMessages];
+
+  // Assign mutation
+  const assignMutation = useMutation({
+    mutationFn: (ticketId: string) =>
+      apiRequest(`/api/v1/conversations/${ticketId}/assign`, {
         method: "POST",
-        body: JSON.stringify({ phone_number: phoneNumber }),
+        body: JSON.stringify({ user_id: "me" }),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["conversations", businessId] });
-      toast({ title: "Success", description: "Conversation taken over" });
+      toast({ title: "Assigned", description: "Ticket assigned to you" });
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
     },
     onError: (error) => {
-      const message = error instanceof ApiError ? error.message : "Take over failed";
+      const message = error instanceof ApiError ? error.message : "Assignment failed";
       toast({ variant: "destructive", title: "Error", description: message });
     },
   });
 
-  // Release mutation
-  const releaseMutation = useMutation({
-    mutationFn: (phoneNumber: string) =>
-      apiRequest("/api/v1/admin/conversation/release", {
-        method: "POST",
-        body: JSON.stringify({ phone_number: phoneNumber }),
+  // Resolve mutation
+  const resolveMutation = useMutation({
+    mutationFn: (ticketId: string) =>
+      apiRequest(`/api/v1/conversations/${ticketId}/resolve`, {
+        method: "PUT",
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["conversations", businessId] });
-      toast({ title: "Success", description: "Conversation released to bot" });
+      toast({ title: "Resolved", description: "Ticket marked as resolved" });
+      
+      // Remove from queue and clear chat
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      
+      // Auto-select next ticket
+      const currentIndex = ticketsData?.findIndex((t) => t._id === selectedTicket?._id) ?? -1;
+      const nextTicket = ticketsData?.[currentIndex + 1] || ticketsData?.[0] || null;
+      
+      if (nextTicket && nextTicket._id !== selectedTicket?._id) {
+        setSelectedTicket(nextTicket);
+      } else {
+        setSelectedTicket(null);
+      }
+      
+      setOptimisticMessages([]);
     },
     onError: (error) => {
-      const message = error instanceof ApiError ? error.message : "Release failed";
+      const message = error instanceof ApiError ? error.message : "Resolve failed";
       toast({ variant: "destructive", title: "Error", description: message });
     },
   });
 
-  const formatLastActive = (dateString: string) => {
-    try {
-      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
-    } catch {
-      return dateString;
-    }
+  // Send message mutation
+  const sendMutation = useMutation({
+    mutationFn: ({ ticketId, message }: { ticketId: string; message: string }) =>
+      apiRequest(`/api/v1/conversations/${ticketId}/send`, {
+        method: "POST",
+        body: JSON.stringify({ message }),
+      }),
+    onMutate: async ({ message }) => {
+      // Optimistic update
+      const newMessage: Message = {
+        id: `optimistic-${Date.now()}`,
+        content: message,
+        sender: "agent",
+        timestamp: new Date().toISOString(),
+      };
+      setOptimisticMessages((prev) => [...prev, newMessage]);
+    },
+    onSuccess: () => {
+      // Clear optimistic and refetch real messages
+      setOptimisticMessages([]);
+      queryClient.invalidateQueries({ queryKey: ["messages", selectedTicket?._id] });
+    },
+    onError: (error) => {
+      setOptimisticMessages([]);
+      const message = error instanceof ApiError ? error.message : "Send failed";
+      toast({ variant: "destructive", title: "Error", description: message });
+    },
+  });
+
+  const handleSelectTicket = (ticket: Ticket) => {
+    setSelectedTicket(ticket);
+    setOptimisticMessages([]);
+  };
+
+  const handleSendMessage = (message: string) => {
+    if (!selectedTicket) return;
+    sendMutation.mutate({ ticketId: selectedTicket._id, message });
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-2xl font-semibold">Conversations</h1>
-        </div>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw
-            className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`}
-          />
-          Refresh
-        </Button>
+    <div className="h-[calc(100vh-4rem)] flex">
+      {/* Left Sidebar - 30% */}
+      <div className="w-[30%] min-w-[280px] max-w-[400px]">
+        <TicketQueue
+          tickets={ticketsData}
+          isLoading={isLoadingTickets}
+          isError={isTicketsError}
+          isFetching={isFetchingTickets}
+          selectedTicketId={selectedTicket?._id ?? null}
+          filter={filter}
+          onFilterChange={setFilter}
+          onSelectTicket={handleSelectTicket}
+          onRefresh={() => refetchTickets()}
+        />
       </div>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-14 w-full" />
-          ))}
-        </div>
-      )}
-
-      {/* Error State */}
-      {isError && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-6 text-center">
-          <p className="text-sm text-destructive">
-            Failed to load conversations
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            className="mt-3"
-          >
-            Try Again
-          </Button>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!isLoading && !isError && conversations?.length === 0 && (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
-          <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">No conversations found</p>
-        </div>
-      )}
-
-      {/* Conversations Table */}
-      {!isLoading && !isError && conversations && conversations.length > 0 && (
-        <div className="rounded-lg border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[180px]">Phone Number</TableHead>
-                <TableHead className="w-[150px]">Last Active</TableHead>
-                <TableHead className="w-[140px]">Status</TableHead>
-                <TableHead>Last Message</TableHead>
-                <TableHead className="w-[180px] text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {conversations.map((conv) => (
-                <TableRow key={conv.phone_number}>
-                  <TableCell className="font-mono text-sm">
-                    {conv.phone_number}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {formatLastActive(conv.updated_at)}
-                  </TableCell>
-                  <TableCell>
-                    {conv.mode === "human" ? (
-                      <Badge
-                        variant="destructive"
-                        className="gap-1 bg-orange-500/90 hover:bg-orange-500"
-                      >
-                        <UserCheck className="h-3 w-3" />
-                        HUMAN CONTROL
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="secondary"
-                        className="gap-1 bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400"
-                      >
-                        <Bot className="h-3 w-3" />
-                        Bot Active
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="max-w-[300px] truncate text-sm text-muted-foreground">
-                    {conv.last_message}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {conv.mode === "human" ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            releaseMutation.mutate(conv.phone_number)
-                          }
-                          disabled={releaseMutation.isPending}
-                        >
-                          {releaseMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Bot className="h-4 w-4 mr-1" />
-                              Release
-                            </>
-                          )}
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() =>
-                            takeOverMutation.mutate(conv.phone_number)
-                          }
-                          disabled={takeOverMutation.isPending}
-                        >
-                          {takeOverMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <UserCheck className="h-4 w-4 mr-1" />
-                              Take Over
-                            </>
-                          )}
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      {/* Right Panel - 70% */}
+      <div className="flex-1">
+        <ActiveChat
+          ticket={selectedTicket}
+          messages={allMessages}
+          isLoadingMessages={isLoadingMessages}
+          isMessagesError={isMessagesError}
+          isAssigning={assignMutation.isPending}
+          isResolving={resolveMutation.isPending}
+          isSending={sendMutation.isPending}
+          onAssign={() => selectedTicket && assignMutation.mutate(selectedTicket._id)}
+          onResolve={() => selectedTicket && resolveMutation.mutate(selectedTicket._id)}
+          onSendMessage={handleSendMessage}
+        />
+      </div>
     </div>
   );
 }
