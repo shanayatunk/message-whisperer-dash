@@ -112,9 +112,7 @@ export async function login(
   username: string,
   password: string
 ): Promise<{ access_token: string; token_type: string }> {
-  // FIXED: Endpoint matches Production pattern (/api/v1/auth/login)
-  // FIXED: Content-Type is application/json
-  // FIXED: Body is JSON stringified (not FormData)
+
   const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -122,10 +120,15 @@ export async function login(
   });
 
   if (!response.ok) {
-    // Attempt to parse the specific error message from the backend (e.g., "Invalid credentials")
     const errorData = await response.json().catch(() => ({ detail: "Invalid credentials" }));
     throw new ApiError(response.status, errorData.detail || "Invalid credentials");
   }
 
-  return response.json();
+  const data = await response.json();
+
+  // ✅ CRITICAL FIX
+  sessionStorage.setItem("auth_token", data.access_token);
+
+  return data;
 }
+
