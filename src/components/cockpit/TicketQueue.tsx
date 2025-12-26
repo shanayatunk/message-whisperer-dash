@@ -2,6 +2,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TicketCard, Ticket } from "./TicketCard";
+import { BusinessSelector } from "./BusinessSelector";
 import { RefreshCw, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -31,30 +32,33 @@ export function TicketQueue({
   return (
     <div className="flex flex-col h-full border-r border-border">
       {/* Header */}
-      <div className="p-3 border-b border-border bg-muted/30">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-semibold text-foreground">The Queue</h2>
+      <div className="p-3 border-b border-border bg-muted/30 space-y-2">
+        {/* Business Selector Row */}
+        <BusinessSelector />
+        
+        {/* Filter + Refresh Row */}
+        <div className="flex items-center gap-2">
+          <Select value={filter} onValueChange={onFilterChange}>
+            <SelectTrigger className="h-8 text-xs flex-1">
+              <SelectValue placeholder="Filter tickets" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Needs Attention</SelectItem>
+              <SelectItem value="pending">Bot Active</SelectItem>
+              <SelectItem value="resolved">Resolved</SelectItem>
+            </SelectContent>
+          </Select>
+          
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-8 w-8 shrink-0"
             onClick={onRefresh}
             disabled={isFetching}
           >
             <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
           </Button>
         </div>
-        
-        <Select value={filter} onValueChange={onFilterChange}>
-          <SelectTrigger className="h-8 text-xs">
-            <SelectValue placeholder="Filter tickets" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Needs Attention</SelectItem>
-            <SelectItem value="pending">Bot Active</SelectItem>
-            <SelectItem value="resolved">Resolved</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Ticket List */}
