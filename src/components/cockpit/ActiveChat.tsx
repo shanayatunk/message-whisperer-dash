@@ -12,7 +12,7 @@ interface ActiveChatProps {
   isAssigning: boolean;
   isResolving: boolean;
   isSending: boolean;
-  onAssign: () => void;
+  onAssign: (userId: string) => void;
   onResolve: () => void;
   onSendMessage: (message: string) => void;
 }

@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button";
-import { UserCheck, CheckCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Loader2 } from "lucide-react";
 import { Ticket } from "./TicketCard";
+import { AgentSelector } from "./AgentSelector";
 
 interface ChatHeaderProps {
   ticket: Ticket;
   isAssigning: boolean;
   isResolving: boolean;
-  onAssign: () => void;
+  onAssign: (userId: string) => void;
   onResolve: () => void;
 }
 
@@ -29,21 +30,11 @@ export function ChatHeader({
       </div>
 
       <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onAssign}
+        <AgentSelector
+          currentAssigneeId={ticket.assigned_to ?? null}
+          onAssign={onAssign}
           disabled={isAssigning || isResolving}
-        >
-          {isAssigning ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <>
-              <UserCheck className="h-4 w-4 mr-1" />
-              Assign to Me
-            </>
-          )}
-        </Button>
+        />
 
         <Button
           variant="default"
