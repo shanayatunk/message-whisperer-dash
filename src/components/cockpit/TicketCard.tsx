@@ -10,6 +10,7 @@ export interface Ticket {
   issue_type: string;
   image_media_id: string | null;
   status: string;
+  assigned_to: string | null;
   created_at: string;
 }
 

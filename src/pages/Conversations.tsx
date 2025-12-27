@@ -73,13 +73,13 @@ export default function Conversations() {
 
   // Assign mutation
   const assignMutation = useMutation({
-    mutationFn: (ticketId: string) =>
+    mutationFn: ({ ticketId, userId }: { ticketId: string; userId: string }) =>
       apiRequest(`/api/v1/conversations/${ticketId}/assign`, {
         method: "POST",
-        body: JSON.stringify({ user_id: "me" }),
+        body: JSON.stringify({ user_id: userId }),
       }),
     onSuccess: () => {
-      toast({ title: "Assigned", description: "Ticket assigned to you" });
+      toast({ title: "Assigned", description: "Ticket assigned successfully" });
       queryClient.invalidateQueries({ queryKey: ["tickets"] });
     },
     onError: (error) => {
@@ -182,7 +182,7 @@ export default function Conversations() {
           isAssigning={assignMutation.isPending}
           isResolving={resolveMutation.isPending}
           isSending={sendMutation.isPending}
-          onAssign={() => selectedTicket && assignMutation.mutate(selectedTicket._id)}
+          onAssign={(userId) => selectedTicket && assignMutation.mutate({ ticketId: selectedTicket._id, userId })}
           onResolve={() => selectedTicket && resolveMutation.mutate(selectedTicket._id)}
           onSendMessage={handleSendMessage}
         />
