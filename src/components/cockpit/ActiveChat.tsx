@@ -21,7 +21,7 @@ interface ActiveChatProps {
   onAssign: (userId: string) => void;
   onResolve: () => void;
   onSendMessage: (message: string) => void;
-  onTicketUpdate?: (updates: Partial<Ticket>) => void;
+  onTicketUpdate?: () => void;
 }
 
 interface ConversationStatusBannerProps {
@@ -109,7 +109,13 @@ export function ActiveChat({
   const handleTakeOver = () => {
     if (user) {
       onAssign(user.id || user.username || "");
+      onTicketUpdate?.();
     }
+  };
+
+  const handleResolve = () => {
+    onResolve();
+    onTicketUpdate?.();
   };
 
   const handleRelease = async () => {
@@ -124,7 +130,7 @@ export function ActiveChat({
         title: "Conversation released",
         description: "The bot will now handle this conversation.",
       });
-      onTicketUpdate?.({ status: "pending", assigned_to: null });
+      onTicketUpdate?.();
     } catch (error) {
       toast({
         title: "Failed to release",
@@ -143,7 +149,7 @@ export function ActiveChat({
         isAssigning={isAssigning}
         isResolving={isResolving}
         onAssign={onAssign}
-        onResolve={onResolve}
+        onResolve={handleResolve}
       />
 
       <ConversationStatusBanner

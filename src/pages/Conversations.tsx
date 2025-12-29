@@ -161,6 +161,10 @@ export default function Conversations() {
     sendMutation.mutate({ ticketId: selectedTicket._id, message });
   };
 
+  const handleTicketUpdate = () => {
+    refetchTickets();
+  };
+
   return (
     <div className="h-[calc(100vh-4rem)] flex">
       {/* Left Sidebar - 30% */}
@@ -192,6 +196,7 @@ export default function Conversations() {
           onAssign={(userId) => selectedTicket && assignMutation.mutate({ ticketId: selectedTicket._id, userId })}
           onResolve={() => selectedTicket && resolveMutation.mutate(selectedTicket._id)}
           onSendMessage={handleSendMessage}
+          onTicketUpdate={handleTicketUpdate}
         />
       </div>
     </div>
