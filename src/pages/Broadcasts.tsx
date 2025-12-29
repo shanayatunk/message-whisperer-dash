@@ -46,7 +46,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Radio, Loader2, Send, RefreshCw, History, Megaphone, Eye, Smartphone, Image, Video, ShieldCheck, TriangleAlert } from "lucide-react";
+import { Radio, Loader2, Send, RefreshCw, History, Megaphone, Eye, Smartphone, Image, Video, ShieldCheck, TriangleAlert, ChevronLeft, ChevronRight, Inbox } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 
 // Types for API responses
@@ -115,6 +115,10 @@ export default function Broadcasts() {
   const [showTestDialog, setShowTestDialog] = useState(false);
   const [testPhone, setTestPhone] = useState("");
   const [isSendingTest, setIsSendingTest] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   // Dynamic template inputs
   const [headerMediaUrl, setHeaderMediaUrl] = useState("");
@@ -561,147 +565,6 @@ export default function Broadcasts() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Section A: Campaign History */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <History className="h-4 w-4" />
-                Campaign History
-              </CardTitle>
-              <CardDescription>Past broadcast campaigns and their status</CardDescription>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchHistory}
-              disabled={historyLoading}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${historyLoading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {historyLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : history.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No campaigns sent yet
-              </div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Template</TableHead>
-                      <TableHead>Audience</TableHead>
-                      <TableHead>Delivery / Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {history?.map((job: any) => {
-                      const total = job.total_recipients || job.sent_count || 1;
-                      const delivered = job.delivered_count || 0;
-                      const read = job.read_count || 0;
-                      const failed = job.failed_count || 0;
-                      
-                      const deliveredPct = Math.round((delivered / total) * 100);
-                      const readPct = Math.round((read / total) * 100);
-                      const failedPct = Math.round((failed / total) * 100);
-                      
-                      return (
-                        <TableRow key={job.id}>
-                          <TableCell className="whitespace-nowrap">
-                            <div className="flex flex-col">
-                              <span className="font-medium">
-                                {job.created_at ? new Date(job.created_at).toLocaleDateString('en-IN', { 
-                                  timeZone: 'Asia/Kolkata', 
-                                  month: 'short', 
-                                  day: 'numeric', 
-                                  year: 'numeric' 
-                                }) : "-"}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {job.created_at ? new Date(job.created_at).toLocaleTimeString('en-IN', { 
-                                  timeZone: 'Asia/Kolkata', 
-                                  hour: '2-digit', 
-                                  minute: '2-digit',
-                                  hour12: true
-                                }) : "-"}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Megaphone className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">
-                                {job.message?.replace("Template: ", "") || job.template_name || "Unknown Template"}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="capitalize">
-                              {job.target_type || job.audience || "All Customers"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="min-w-[200px]">
-                            <div className="space-y-1.5">
-                              {/* Status Badge */}
-                              <div className="flex items-center gap-2">
-                                {job.status === 'processing' ? (
-                                  <Badge variant="secondary" className="gap-1 animate-pulse">
-                                    <Loader2 className="h-3 w-3 animate-spin" /> Processing
-                                  </Badge>
-                                ) : (
-                                  <Badge variant={job.status === 'completed' ? 'default' : 'secondary'}>
-                                    {job.status || 'Unknown'}
-                                  </Badge>
-                                )}
-                              </div>
-                              {/* Stats Bars (Only show if total > 0) */}
-                              {total > 0 ? (
-                                <div className="space-y-1">
-                                  <div className="flex h-2 w-full overflow-hidden rounded-full bg-secondary">
-                                    {/* Delivered (Green) */}
-                                    <div 
-                                      className="bg-green-500 transition-all duration-500" 
-                                      style={{ width: `${(delivered / total) * 100}%` }} 
-                                    />
-                                    {/* Read (Blue) */}
-                                    <div 
-                                      className="bg-blue-500 transition-all duration-500" 
-                                      style={{ width: `${(read / total) * 100}%` }} 
-                                    />
-                                    {/* Failed (Red) */}
-                                    <div 
-                                      className="bg-red-500 transition-all duration-500" 
-                                      style={{ width: `${(failed / total) * 100}%` }} 
-                                    />
-                                  </div>
-                                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                                    <span className="text-green-600 font-medium">{delivered} Del</span>
-                                    <span className="text-blue-600 font-medium">{read} Read</span>
-                                    <span className="text-red-600 font-medium">{failed} Fail</span>
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">No recipients</span>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Section B: Create Campaign */}
         <Card>
           <CardHeader>
@@ -933,6 +796,180 @@ export default function Broadcasts() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Campaign History Section */}
+      <Card className="mt-8">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Campaign History
+            </CardTitle>
+            <CardDescription>View past broadcast performance</CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchHistory}
+            disabled={historyLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${historyLoading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-8 min-h-[300px]">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : history.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 min-h-[300px] text-muted-foreground">
+              <Inbox className="h-12 w-12 mb-3 opacity-50" />
+              <p className="text-sm font-medium">No campaigns sent yet</p>
+              <p className="text-xs mt-1">Your broadcast history will appear here</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-md border min-h-[280px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Template</TableHead>
+                      <TableHead>Audience</TableHead>
+                      <TableHead>Delivery / Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(() => {
+                      const totalPages = Math.ceil(history.length / itemsPerPage);
+                      const startIndex = (currentPage - 1) * itemsPerPage;
+                      const paginatedHistory = history.slice(startIndex, startIndex + itemsPerPage);
+                      
+                      return paginatedHistory.map((job: any) => {
+                        const total = job.total_recipients || job.sent_count || 1;
+                        const delivered = job.delivered_count || 0;
+                        const read = job.read_count || 0;
+                        const failed = job.failed_count || 0;
+                        
+                        return (
+                          <TableRow key={job.id}>
+                            <TableCell className="whitespace-nowrap">
+                              <div className="flex flex-col">
+                                <span className="font-medium">
+                                  {job.created_at ? new Date(job.created_at).toLocaleDateString('en-IN', { 
+                                    timeZone: 'Asia/Kolkata', 
+                                    month: 'short', 
+                                    day: 'numeric', 
+                                    year: 'numeric' 
+                                  }) : "-"}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {job.created_at ? new Date(job.created_at).toLocaleTimeString('en-IN', { 
+                                    timeZone: 'Asia/Kolkata', 
+                                    hour: '2-digit', 
+                                    minute: '2-digit',
+                                    hour12: true
+                                  }) : "-"}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Megaphone className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">
+                                  {job.message?.replace("Template: ", "") || job.template_name || "Unknown Template"}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="capitalize">
+                                {job.target_type || job.audience || "All Customers"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="min-w-[200px]">
+                              <div className="space-y-1.5">
+                                {/* Status Badge */}
+                                <div className="flex items-center gap-2">
+                                  {job.status === 'processing' ? (
+                                    <Badge variant="secondary" className="gap-1 animate-pulse">
+                                      <Loader2 className="h-3 w-3 animate-spin" /> Processing
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant={job.status === 'completed' ? 'default' : 'secondary'}>
+                                      {job.status || 'Unknown'}
+                                    </Badge>
+                                  )}
+                                </div>
+                                {/* Stats Bars (Only show if total > 0) */}
+                                {total > 0 ? (
+                                  <div className="space-y-1">
+                                    <div className="flex h-2 w-full overflow-hidden rounded-full bg-secondary">
+                                      {/* Delivered (Green) */}
+                                      <div 
+                                        className="bg-green-500 transition-all duration-500" 
+                                        style={{ width: `${(delivered / total) * 100}%` }} 
+                                      />
+                                      {/* Read (Blue) */}
+                                      <div 
+                                        className="bg-blue-500 transition-all duration-500" 
+                                        style={{ width: `${(read / total) * 100}%` }} 
+                                      />
+                                      {/* Failed (Red) */}
+                                      <div 
+                                        className="bg-red-500 transition-all duration-500" 
+                                        style={{ width: `${(failed / total) * 100}%` }} 
+                                      />
+                                    </div>
+                                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                                      <span className="text-green-600 font-medium">{delivered} Del</span>
+                                      <span className="text-blue-600 font-medium">{read} Read</span>
+                                      <span className="text-red-600 font-medium">{failed} Fail</span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">No recipients</span>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      });
+                    })()}
+                  </TableBody>
+                </Table>
+              </div>
+              
+              {/* Pagination Controls */}
+              {history.length > itemsPerPage && (
+                <div className="flex items-center justify-between pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {Math.ceil(history.length / itemsPerPage)}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(history.length / itemsPerPage), prev + 1))}
+                    disabled={currentPage >= Math.ceil(history.length / itemsPerPage)}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Confirmation Dialog */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
