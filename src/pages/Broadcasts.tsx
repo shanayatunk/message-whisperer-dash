@@ -110,6 +110,13 @@ export default function Broadcasts() {
   const [testPhone, setTestPhone] = useState("");
   const [isSendingTest, setIsSendingTest] = useState(false);
 
+  // Dynamic template inputs
+  const [headerMediaUrl, setHeaderMediaUrl] = useState("");
+  const [buttonSuffix, setButtonSuffix] = useState("");
+  const [discountPercent, setDiscountPercent] = useState("");
+  const [couponCode, setCouponCode] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
+
   // Fetch config on mount
   useEffect(() => {
     if (!businessId) return;
@@ -204,6 +211,7 @@ export default function Broadcasts() {
           template_id: selectedTemplate,
           is_test: true,
           test_phone: testPhone.trim(),
+          ...getTemplatePayload(),
         }),
       });
 
@@ -236,6 +244,7 @@ export default function Broadcasts() {
           business_id: businessId,
           template_id: selectedTemplate,
           audience_id: selectedAudience,
+          ...getTemplatePayload(),
         }),
       });
 
@@ -245,6 +254,7 @@ export default function Broadcasts() {
       // Reset form and refresh history
       setSelectedTemplate("");
       setSelectedAudience("");
+      resetDynamicInputs();
       fetchHistory();
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "Broadcast failed";
@@ -267,6 +277,209 @@ export default function Broadcasts() {
   const selectedAudienceData = config?.audiences?.find(
     (a) => a.id === selectedAudience
   );
+
+  // Reset dynamic inputs when template changes
+  const resetDynamicInputs = () => {
+    setHeaderMediaUrl("");
+    setButtonSuffix("");
+    setDiscountPercent("");
+    setCouponCode("");
+    setExpiryDate("");
+  };
+
+  // Build template-specific payload
+  const getTemplatePayload = () => {
+    switch (selectedTemplate) {
+      case "new_arrival_showcase":
+        return {
+          header_image_url: headerMediaUrl,
+          button_url_suffix: buttonSuffix,
+          body_params: ["{{name}}"],
+        };
+      case "video_collection_launch":
+        return {
+          header_video_url: headerMediaUrl,
+          button_url_suffix: buttonSuffix,
+          body_params: ["{{name}}"],
+        };
+      case "festival_sale_alert":
+        return {
+          body_params: ["{{name}}", discountPercent, couponCode, expiryDate],
+          button_url_suffix: buttonSuffix,
+        };
+      case "gentle_greeting_v1":
+        return {
+          body_params: ["{{name}}"],
+        };
+      default:
+        return {};
+    }
+  };
+
+  // Render dynamic inputs based on selected template
+  const renderDynamicInputs = () => {
+    switch (selectedTemplate) {
+      case "new_arrival_showcase":
+        return (
+          <div className="space-y-4 pt-4 border-t border-border">
+            <div className="space-y-2">
+              <Label htmlFor="header-image" className="text-sm font-medium">
+                Header Image URL
+              </Label>
+              <Input
+                id="header-image"
+                type="url"
+                placeholder="https://example.com/image.jpg"
+                value={headerMediaUrl}
+                onChange={(e) => setHeaderMediaUrl(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="link-suffix" className="text-sm font-medium">
+                  Link Suffix
+                </Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-xs text-muted-foreground cursor-help">(?)</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Appended to your base URL (e.g., 'collections/new')</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <Input
+                id="link-suffix"
+                type="text"
+                placeholder="collections/new"
+                value={buttonSuffix}
+                onChange={(e) => setButtonSuffix(e.target.value)}
+              />
+            </div>
+          </div>
+        );
+      case "video_collection_launch":
+        return (
+          <div className="space-y-4 pt-4 border-t border-border">
+            <div className="space-y-2">
+              <Label htmlFor="header-video" className="text-sm font-medium">
+                Header Video URL
+              </Label>
+              <Input
+                id="header-video"
+                type="url"
+                placeholder="https://example.com/video.mp4"
+                value={headerMediaUrl}
+                onChange={(e) => setHeaderMediaUrl(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="link-suffix-video" className="text-sm font-medium">
+                  Link Suffix
+                </Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-xs text-muted-foreground cursor-help">(?)</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Appended to your base URL (e.g., 'collections/sale')</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <Input
+                id="link-suffix-video"
+                type="text"
+                placeholder="collections/sale"
+                value={buttonSuffix}
+                onChange={(e) => setButtonSuffix(e.target.value)}
+              />
+            </div>
+          </div>
+        );
+      case "festival_sale_alert":
+        return (
+          <div className="space-y-4 pt-4 border-t border-border">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="discount" className="text-sm font-medium">
+                  Discount %
+                </Label>
+                <Input
+                  id="discount"
+                  type="text"
+                  placeholder="20"
+                  value={discountPercent}
+                  onChange={(e) => setDiscountPercent(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="coupon" className="text-sm font-medium">
+                  Coupon Code
+                </Label>
+                <Input
+                  id="coupon"
+                  type="text"
+                  placeholder="SALE20"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="expiry" className="text-sm font-medium">
+                Expiry Date
+              </Label>
+              <Input
+                id="expiry"
+                type="text"
+                placeholder="Dec 31, 2024"
+                value={expiryDate}
+                onChange={(e) => setExpiryDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="link-suffix-sale" className="text-sm font-medium">
+                  Link Suffix
+                </Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-xs text-muted-foreground cursor-help">(?)</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Appended to your base URL (e.g., 'collections/sale')</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <Input
+                id="link-suffix-sale"
+                type="text"
+                placeholder="collections/sale"
+                value={buttonSuffix}
+                onChange={(e) => setButtonSuffix(e.target.value)}
+              />
+            </div>
+          </div>
+        );
+      case "gentle_greeting_v1":
+        return (
+          <div className="pt-4 border-t border-border">
+            <p className="text-sm text-muted-foreground">
+              No additional inputs required for this template.
+            </p>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   const getStatusBadge = (status: BroadcastJob["status"]) => {
     switch (status) {
@@ -399,6 +612,9 @@ export default function Broadcasts() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Dynamic Template Inputs */}
+                {selectedTemplate && renderDynamicInputs()}
 
                 {/* Audience Selector */}
                 <div className="space-y-2">
