@@ -12,6 +12,7 @@ interface ActiveChatProps {
   isAssigning: boolean;
   isResolving: boolean;
   isSending: boolean;
+  isAgentTyping?: boolean;
   onAssign: (userId: string) => void;
   onResolve: () => void;
   onSendMessage: (message: string) => void;
@@ -25,6 +26,7 @@ export function ActiveChat({
   isAssigning,
   isResolving,
   isSending,
+  isAgentTyping,
   onAssign,
   onResolve,
   onSendMessage,
@@ -54,6 +56,7 @@ export function ActiveChat({
         messages={messages}
         isLoading={isLoadingMessages}
         isError={isMessagesError}
+        isAgentTyping={isAgentTyping}
       />
 
       <MessageInput

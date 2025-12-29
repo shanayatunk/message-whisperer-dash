@@ -188,6 +188,7 @@ export default function Conversations() {
           isAssigning={assignMutation.isPending}
           isResolving={resolveMutation.isPending}
           isSending={sendMutation.isPending}
+          isAgentTyping={sendMutation.isPending}
           onAssign={(userId) => selectedTicket && assignMutation.mutate({ ticketId: selectedTicket._id, userId })}
           onResolve={() => selectedTicket && resolveMutation.mutate(selectedTicket._id)}
           onSendMessage={handleSendMessage}
