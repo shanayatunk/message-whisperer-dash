@@ -49,6 +49,7 @@ export default function Conversations() {
       const response = await apiRequest<TicketsResponse>(`/api/v1/conversations?${params}`);
       return response.data.tickets;
     },
+    refetchInterval: 5000,
   });
 
   // Fetch messages for selected ticket
@@ -66,6 +67,7 @@ export default function Conversations() {
       return response.data.messages;
     },
     enabled: !!selectedTicket,
+    refetchInterval: selectedTicket?.status === 'resolved' ? false : 3000,
   });
 
   // Combine fetched messages with optimistic ones, sorted chronologically
