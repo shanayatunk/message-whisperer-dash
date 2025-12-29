@@ -46,8 +46,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Radio, Loader2, Send, RefreshCw, History, Megaphone, Eye, Smartphone, Image, Video } from "lucide-react";
-import { format } from "date-fns";
+import { Radio, Loader2, Send, RefreshCw, History, Megaphone, Eye, Smartphone, Image, Video, ShieldCheck, TriangleAlert } from "lucide-react";
+import { format, differenceInDays } from "date-fns";
 
 // Types for API responses
 interface Template {
@@ -55,6 +55,8 @@ interface Template {
   name: string;
   header?: string;
   body?: string;
+  version?: string;
+  last_verified?: string;
 }
 
 interface Audience {
@@ -749,6 +751,11 @@ export default function Broadcasts() {
             <CardTitle className="text-lg flex items-center gap-2">
               <Eye className="h-4 w-4" />
               Template Preview
+              {selectedTemplateData?.version && (
+                <span className="text-xs font-normal text-muted-foreground">
+                  {selectedTemplateData.version}
+                </span>
+              )}
             </CardTitle>
             <CardDescription>Live preview of your message</CardDescription>
           </CardHeader>
@@ -759,6 +766,41 @@ export default function Broadcasts() {
               </div>
             ) : (
               <div className="space-y-3">
+                {/* Verification Badge */}
+                {(() => {
+                  const lastVerified = selectedTemplateData.last_verified;
+                  if (!lastVerified) return null;
+                  
+                  const verifiedDate = new Date(lastVerified);
+                  const daysDiff = differenceInDays(new Date(), verifiedDate);
+                  const isStale = daysDiff > 30;
+                  
+                  return (
+                    <div className="flex justify-end">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge 
+                              variant="outline" 
+                              className={`gap-1 ${isStale ? 'border-yellow-500 text-yellow-600' : 'border-green-500 text-green-600'}`}
+                            >
+                              {isStale ? (
+                                <TriangleAlert className="h-3 w-3" />
+                              ) : (
+                                <ShieldCheck className="h-3 w-3" />
+                              )}
+                              Meta Verified: {lastVerified}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>This preview text was manually matched with Meta on {lastVerified}. If your real message looks different, please update the backend metadata.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  );
+                })()}
+
                 {/* WhatsApp Message Bubble */}
                 <div className="bg-[#dcf8c6] rounded-lg p-3 relative max-w-[280px]">
                   {/* Header */}
