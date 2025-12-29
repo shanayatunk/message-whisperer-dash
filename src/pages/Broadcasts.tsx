@@ -182,12 +182,12 @@ export default function Broadcasts() {
   };
 
   // Get selected template details for preview
-  const selectedTemplateData = config?.allowed_templates.find(
+  const selectedTemplateData = config?.allowed_templates?.find(
     (t) => t.id === selectedTemplate
   );
 
   // Get selected audience details
-  const selectedAudienceData = config?.audiences.find(
+  const selectedAudienceData = config?.audiences?.find(
     (a) => a.id === selectedAudience
   );
 
@@ -314,7 +314,7 @@ export default function Broadcasts() {
                       <SelectValue placeholder="Select a template" />
                     </SelectTrigger>
                     <SelectContent className="bg-popover">
-                      {config.allowed_templates.map((t) => (
+                      {config.allowed_templates?.map((t) => (
                         <SelectItem key={t.id} value={t.id}>
                           {t.name}
                         </SelectItem>
@@ -333,7 +333,7 @@ export default function Broadcasts() {
                       <SelectValue placeholder="Select an audience" />
                     </SelectTrigger>
                     <SelectContent className="bg-popover">
-                      {config.audiences.map((a) => (
+                      {config.audiences?.map((a) => (
                         <SelectItem key={a.id} value={a.id}>
                           {a.name}
                           {a.count !== undefined && (
