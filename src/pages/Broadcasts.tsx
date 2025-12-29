@@ -108,10 +108,17 @@ export default function Broadcasts() {
   const fetchConfig = async () => {
     setConfigLoading(true);
     try {
-      const data = await apiRequest<BroadcastConfig>(
+      const data = await apiRequest<any>(
         `/api/v1/broadcasts/config?business_id=${businessId}`
       );
-      setConfig(data);
+      // Safely extract arrays from various response structures
+      const allowed_templates = Array.isArray(data?.allowed_templates) 
+        ? data.allowed_templates 
+        : [];
+      const audiences = Array.isArray(data?.audiences) 
+        ? data.audiences 
+        : [];
+      setConfig({ allowed_templates, audiences });
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "Failed to load config";
       toast({
@@ -127,10 +134,23 @@ export default function Broadcasts() {
   const fetchHistory = async () => {
     setHistoryLoading(true);
     try {
-      const data = await apiRequest<BroadcastJob[]>(
+      const data = await apiRequest<any>(
         `/api/v1/broadcasts/history?business_id=${businessId}`
       );
-      setHistory(data);
+      // Safely extract jobs array from various response structures
+      let jobs: BroadcastJob[] = [];
+      if (Array.isArray(data)) {
+        // Handle Tuple: [[job1, job2], {pagination}]
+        if (data.length > 0 && Array.isArray(data[0])) {
+          jobs = data[0];
+        } else {
+          jobs = data; // It's just a flat array
+        }
+      } else if (data?.jobs && Array.isArray(data.jobs)) {
+        // Handle Object: { jobs: [...], pagination: ... }
+        jobs = data.jobs;
+      }
+      setHistory(jobs);
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "Failed to load history";
       toast({
@@ -258,7 +278,7 @@ export default function Broadcasts() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {history.map((job) => (
+                    {history?.map((job) => (
                       <TableRow key={job.id}>
                         <TableCell className="text-sm">
                           {format(new Date(job.created_at), "MMM d, yyyy HH:mm")}
