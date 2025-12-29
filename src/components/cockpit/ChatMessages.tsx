@@ -21,6 +21,7 @@ interface ChatMessagesProps {
   messages: Message[] | undefined;
   isLoading: boolean;
   isError: boolean;
+  isAgentTyping?: boolean;
 }
 
 function cleanContent(content: string): string {
@@ -56,7 +57,19 @@ function isSameDay(date1: Date, date2: Date): boolean {
   );
 }
 
-export function ChatMessages({ messages, isLoading, isError }: ChatMessagesProps) {
+function TypingIndicator() {
+  return (
+    <div className="flex justify-end">
+      <div className="bg-primary/80 rounded-lg px-4 py-3 flex items-center gap-1">
+        <span className="w-2 h-2 bg-primary-foreground/70 rounded-full animate-bounce [animation-delay:-0.3s]" />
+        <span className="w-2 h-2 bg-primary-foreground/70 rounded-full animate-bounce [animation-delay:-0.15s]" />
+        <span className="w-2 h-2 bg-primary-foreground/70 rounded-full animate-bounce" />
+      </div>
+    </div>
+  );
+}
+
+export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: ChatMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -159,6 +172,7 @@ export function ChatMessages({ messages, isLoading, isError }: ChatMessagesProps
               </div>
             );
           })}
+          {isAgentTyping && <TypingIndicator />}
           <div ref={bottomRef} />
         </div>
       </ScrollArea>
