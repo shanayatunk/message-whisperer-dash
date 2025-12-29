@@ -1,9 +1,10 @@
-import { MessageSquare, Bot, UserCheck, CheckCircle } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { Ticket } from "./TicketCard";
 import { ChatHeader } from "./ChatHeader";
 import { ChatMessages, Message } from "./ChatMessages";
 import { MessageInput } from "./MessageInput";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ActiveChatProps {
   ticket: Ticket | null;
@@ -19,7 +20,13 @@ interface ActiveChatProps {
   onSendMessage: (message: string) => void;
 }
 
-function ConversationStatusBanner({ status }: { status: string }) {
+interface ConversationStatusBannerProps {
+  status: string;
+  onTakeOver?: () => void;
+  canTakeOver?: boolean;
+}
+
+function ConversationStatusBanner({ status, onTakeOver, canTakeOver }: ConversationStatusBannerProps) {
   if (status === "human_needed") {
     return (
       <div className="w-full px-4 py-2 bg-amber-100 text-amber-800 text-center text-sm">
@@ -38,8 +45,18 @@ function ConversationStatusBanner({ status }: { status: string }) {
 
   // Default: pending or other statuses
   return (
-    <div className="w-full px-4 py-2 bg-muted text-muted-foreground text-center text-sm">
-      🤖 Bot is handling this conversation.
+    <div className="w-full px-4 py-2 bg-muted text-muted-foreground text-center text-sm flex items-center justify-center">
+      <span>🤖 Bot is handling this conversation.</span>
+      {canTakeOver && onTakeOver && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onTakeOver}
+          className="ml-4 h-7 text-xs bg-background hover:bg-accent"
+        >
+          ✋ Take Over
+        </Button>
+      )}
     </div>
   );
 }
@@ -57,6 +74,8 @@ export function ActiveChat({
   onResolve,
   onSendMessage,
 }: ActiveChatProps) {
+  const { user } = useAuth();
+
   if (!ticket) {
     return (
       <div className="h-full flex items-center justify-center bg-muted/10">
@@ -68,6 +87,12 @@ export function ActiveChat({
     );
   }
 
+  const handleTakeOver = () => {
+    if (user) {
+      onAssign(user.id || user.username || "");
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full">
       <ChatHeader
@@ -78,7 +103,11 @@ export function ActiveChat({
         onResolve={onResolve}
       />
 
-      <ConversationStatusBanner status={ticket.status} />
+      <ConversationStatusBanner
+        status={ticket.status}
+        onTakeOver={handleTakeOver}
+        canTakeOver={ticket.status === "pending" && !!user}
+      />
 
       <ChatMessages
         messages={messages}

@@ -64,7 +64,7 @@ export default function Login() {
       );
 
       // ✅ Store JWT in sessionStorage via AuthContext
-      login(response.access_token);
+      login(response.access_token, result.data.username);
 
       // ✅ Redirect to dashboard
       navigate("/conversations");
