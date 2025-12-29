@@ -127,39 +127,38 @@ export default function Broadcasts() {
   const fetchConfig = async () => {
     setConfigLoading(true);
     try {
-      const data = await apiRequest<any>(
+      const response = await apiRequest<any>(
         `/api/v1/broadcasts/config?business_id=${businessId}`
       );
       
-      // 1. Get the raw list (handle both keys for safety)
-      const rawTemplates = data?.templates || data?.allowed_templates || [];
+      // FIX: Look inside 'response.data' first, then fallback to 'response'
+      const payload = response.data || response;
+      
+      // 1. Get the raw list
+      const rawTemplates = payload.templates || payload.allowed_templates || [];
       
       // 2. Transform strings into objects
-      const allowed_templates = Array.isArray(rawTemplates) 
-        ? rawTemplates.map((t: any) => {
-            // If it's just a string ("hello_world"), make it an object
-            if (typeof t === 'string') {
-              return {
-                id: t,
-                name: t
-                  .replace(/_/g, " ") // Replace underscores with spaces
-                  .replace(/\b\w/g, (l) => l.toUpperCase()) // Title Case
-              };
-            }
-            // If it's already an object (legacy fix), keep it
-            return t;
-          })
-        : [];
+      const allowed_templates = rawTemplates.map((t: any) => {
+        if (typeof t === 'string') {
+          return {
+            id: t,
+            name: t
+              .replace(/_/g, " ")
+              .replace(/\b\w/g, (l) => l.toUpperCase())
+          };
+        }
+        return t;
+      });
       
       // 3. Set State
-      const audiences = Array.isArray(data?.audiences) ? data.audiences : [];
+      const audiences = Array.isArray(payload.audiences) ? payload.audiences : [];
       setConfig({ allowed_templates, audiences });
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : "Failed to load config";
+      console.error("Config fetch error:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: message,
+        description: "Failed to load config",
       });
     } finally {
       setConfigLoading(false);
@@ -169,9 +168,13 @@ export default function Broadcasts() {
   const fetchHistory = async () => {
     setHistoryLoading(true);
     try {
-      const data = await apiRequest<any>(
+      const response = await apiRequest<any>(
         `/api/v1/broadcasts/history?business_id=${businessId}`
       );
+      
+      // FIX: Look inside 'response.data' first, then fallback to 'response'
+      const data = response.data || response;
+      
       // Safely extract jobs array from various response structures
       let jobs: BroadcastJob[] = [];
       if (Array.isArray(data)) {
@@ -187,11 +190,11 @@ export default function Broadcasts() {
       }
       setHistory(jobs);
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : "Failed to load history";
+      console.error("History fetch error:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: message,
+        description: "Failed to load history",
       });
     } finally {
       setHistoryLoading(false);
