@@ -14,6 +14,7 @@ export interface Message {
   _id?: string;
   content: string;
   sender: "user" | "agent" | "bot";
+  direction?: "inbound" | "outbound";
   timestamp?: string;
   created_at?: string;
   image_media_id?: string;
@@ -36,6 +37,16 @@ function cleanContent(content: string): string {
     // Not JSON
   }
   return content;
+}
+
+// Extract media ID from visual_search pattern
+function extractVisualSearchMediaId(content: string): string | null {
+  const match = content.match(/visual_search_(\d+)_caption_/);
+  return match ? match[1] : null;
+}
+
+function isVisualSearchContent(content: string): boolean {
+  return content.includes("visual_search_");
 }
 
 const normalizeUTC = (dateStr: string) =>
@@ -74,16 +85,16 @@ function TypingIndicator() {
 
 function DeliveryStatus({ status }: { status?: MessageStatus }) {
   if (!status || status === "sending") {
-    return <Check className="h-3 w-3 text-primary-foreground/50" />;
+    return <Check className="h-3 w-3 text-emerald-600/50" />;
   }
   if (status === "sent") {
-    return <Check className="h-3 w-3 text-primary-foreground/70" />;
+    return <Check className="h-3 w-3 text-emerald-600/70" />;
   }
   if (status === "delivered") {
-    return <CheckCheck className="h-3 w-3 text-primary-foreground/70" />;
+    return <CheckCheck className="h-3 w-3 text-emerald-600/70" />;
   }
   // read
-  return <CheckCheck className="h-3 w-3 text-sky-300" />;
+  return <CheckCheck className="h-3 w-3 text-sky-500" />;
 }
 
 export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: ChatMessagesProps) {
@@ -139,7 +150,10 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
       <ScrollArea className="h-full" ref={scrollRef} onScrollCapture={handleScroll}>
         <div className="p-4 space-y-3">
           {messages.map((msg, idx) => {
-            const isUser = msg.sender === "user";
+            // Use direction if available, fallback to sender logic
+            const isInbound = msg.direction 
+              ? msg.direction === "inbound" 
+              : msg.sender === "user";
             const time = msg.timestamp || msg.created_at;
             const msgDate = getMessageDate(msg);
             
@@ -147,6 +161,10 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
             const prevMsg = idx > 0 ? messages[idx - 1] : null;
             const prevDate = prevMsg ? getMessageDate(prevMsg) : null;
             const showDateSeparator = !prevDate || !isSameDay(msgDate, prevDate);
+
+            // Check for visual_search pattern in content
+            const visualSearchMediaId = msg.content ? extractVisualSearchMediaId(msg.content) : null;
+            const hasVisualSearch = msg.content ? isVisualSearchContent(msg.content) : false;
 
             return (
               <div key={msg.id || msg._id || idx}>
@@ -157,37 +175,47 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
                     </span>
                   </div>
                 )}
-                <div className={cn("flex", isUser ? "justify-start" : "justify-end")}>
+                <div className={cn("flex", isInbound ? "justify-start" : "justify-end")}>
                   <div
                     className={cn(
-                      "max-w-[75%] rounded-lg px-3 py-2 text-sm",
-                      isUser
-                        ? "bg-muted text-foreground"
-                        : "bg-primary text-primary-foreground"
+                      "max-w-[75%] px-3 py-2 text-sm",
+                      isInbound
+                        ? "bg-card border border-border text-foreground rounded-lg rounded-tl-none"
+                        : "bg-emerald-100 text-emerald-900 rounded-lg rounded-tr-none"
                     )}
                   >
+                    {/* Render image from image_media_id */}
                     {msg.image_media_id && (
                       <SecureImage
                         mediaId={msg.image_media_id}
                         alt="Message attachment"
-                        className="mb-2"
+                        className="mb-2 rounded-lg max-w-[200px]"
                       />
                     )}
-                    {msg.content && (
+                    {/* Render image from visual_search pattern */}
+                    {!msg.image_media_id && hasVisualSearch && visualSearchMediaId && (
+                      <SecureImage
+                        mediaId={visualSearchMediaId}
+                        alt="Visual search image"
+                        className="mb-2 rounded-lg max-w-[200px]"
+                      />
+                    )}
+                    {/* Render text content (skip if it's only a visual_search pattern) */}
+                    {msg.content && !hasVisualSearch && (
                       <p className="whitespace-pre-wrap break-words">{cleanContent(msg.content)}</p>
                     )}
                     {time && (
                       <div className={cn(
                         "flex items-center gap-1 mt-1",
-                        isUser ? "justify-start" : "justify-end"
+                        isInbound ? "justify-start" : "justify-end"
                       )}>
                         <span className={cn(
                           "text-xs opacity-70",
-                          isUser ? "text-muted-foreground" : "text-primary-foreground/70"
+                          isInbound ? "text-muted-foreground" : "text-emerald-700"
                         )}>
                           {new Date(normalizeUTC(time)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                        {!isUser && <DeliveryStatus status={msg.status} />}
+                        {!isInbound && <DeliveryStatus status={msg.status} />}
                       </div>
                     )}
                   </div>
