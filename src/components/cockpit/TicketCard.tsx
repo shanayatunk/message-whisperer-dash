@@ -64,15 +64,12 @@ export function TicketCard({ ticket, isSelected, onClick }: TicketCardProps) {
         </div>
         
         {ticket.assigned_to && (
-          <Badge 
-            variant="secondary" 
-            className="text-xs rounded-full bg-primary/10 text-primary max-w-[100px] truncate gap-1"
-          >
+          <span className="inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5 max-w-[100px]">
             <User className="h-3 w-3 shrink-0" />
             <span className="truncate">
-              {ticket.assigned_to_username || "Assigned"}
+              {ticket.assigned_to_username || ticket.assigned_to}
             </span>
-          </Badge>
+          </span>
         )}
       </div>
     </div>
