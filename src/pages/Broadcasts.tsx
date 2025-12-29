@@ -76,6 +76,10 @@ interface BroadcastJob {
   template_name: string;
   audience_name: string;
   sent_count: number;
+  delivered_count?: number;
+  read_count?: number;
+  failed_count?: number;
+  total_recipients?: number;
   status: "pending" | "processing" | "completed" | "failed";
 }
 
@@ -119,11 +123,18 @@ export default function Broadcasts() {
   const [couponCode, setCouponCode] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
 
-  // Fetch config on mount
+  // Fetch config on mount + auto-refresh history
   useEffect(() => {
     if (!businessId) return;
     fetchConfig();
     fetchHistory();
+
+    // Auto-refresh history every 10 seconds for real-time updates
+    const interval = setInterval(() => {
+      fetchHistory();
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, [businessId]);
 
   const fetchConfig = async () => {
@@ -587,40 +598,113 @@ export default function Broadcasts() {
                       <TableHead>Date</TableHead>
                       <TableHead>Template</TableHead>
                       <TableHead>Audience</TableHead>
-                      <TableHead className="text-right">Sent</TableHead>
+                      <TableHead>Delivery</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {history?.map((job: any) => (
-                      <TableRow key={job.id}>
-                        <TableCell className="whitespace-nowrap">
-                          <div className="flex flex-col">
-                            <span className="font-medium">
-                              {job.created_at ? new Date(job.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : "-"}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {job.created_at ? new Date(job.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : "-"}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Megaphone className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">
-                              {job.message?.replace("Template: ", "") || job.template_name || "Unknown Template"}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize">
-                            {job.target_type || job.audience || "All Customers"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">{job.sent_count}</TableCell>
-                        <TableCell>{getStatusBadge(job.status)}</TableCell>
-                      </TableRow>
-                    ))}
+                    {history?.map((job: any) => {
+                      const total = job.total_recipients || job.sent_count || 1;
+                      const delivered = job.delivered_count || 0;
+                      const read = job.read_count || 0;
+                      const failed = job.failed_count || 0;
+                      
+                      const deliveredPct = Math.round((delivered / total) * 100);
+                      const readPct = Math.round((read / total) * 100);
+                      const failedPct = Math.round((failed / total) * 100);
+                      
+                      return (
+                        <TableRow key={job.id}>
+                          <TableCell className="whitespace-nowrap">
+                            <div className="flex flex-col">
+                              <span className="font-medium">
+                                {job.created_at ? new Date(job.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : "-"}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {job.created_at ? new Date(job.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : "-"}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Megaphone className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-medium">
+                                {job.message?.replace("Template: ", "") || job.template_name || "Unknown Template"}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize">
+                              {job.target_type || job.audience || "All Customers"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-3 min-w-[180px]">
+                              {/* Delivered Mini Bar */}
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="w-12 h-2 bg-muted rounded-full overflow-hidden">
+                                        <div 
+                                          className="h-full bg-green-500 rounded-full transition-all duration-500"
+                                          style={{ width: `${Math.min(deliveredPct, 100)}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-xs font-medium text-green-600 w-6">{delivered}</span>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{delivered} Delivered ({deliveredPct}%)</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              
+                              {/* Read Mini Bar */}
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="w-12 h-2 bg-muted rounded-full overflow-hidden">
+                                        <div 
+                                          className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                                          style={{ width: `${Math.min(readPct, 100)}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-xs font-medium text-blue-600 w-6">{read}</span>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{read} Read ({readPct}%)</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              
+                              {/* Failed Mini Bar */}
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="w-12 h-2 bg-muted rounded-full overflow-hidden">
+                                        <div 
+                                          className="h-full bg-red-500 rounded-full transition-all duration-500"
+                                          style={{ width: `${Math.min(failedPct, 100)}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-xs font-medium text-red-600 w-6">{failed}</span>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{failed} Failed ({failedPct}%)</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(job.status)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
