@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { SecureImage } from "./SecureImage";
-import { ChevronDown, Check, CheckCheck, UserRound } from "lucide-react";
+import { ChevronDown, Check, CheckCheck, UserRound, Bot, Megaphone } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 
 export type MessageStatus = "sending" | "sent" | "delivered" | "read";
@@ -19,6 +19,7 @@ export interface Message {
   created_at?: string;
   image_media_id?: string;
   status?: MessageStatus;
+  source?: "customer" | "bot" | "agent" | "system" | "broadcast";
 }
 
 interface ChatMessagesProps {
@@ -172,8 +173,11 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
             const visualSearchMediaId = msg.content ? extractVisualSearchMediaId(msg.content) : null;
             const hasVisualSearch = msg.content ? isVisualSearchContent(msg.content) : false;
 
-            // Check if this is an agent entry system message
-            const isAgentEntry = msg.content ? isAgentEntryMessage(msg.content, msg.direction) : false;
+            // Check if this is an agent entry system message or system source
+            const isSystemMessage = msg.source === "system" || (msg.content ? isAgentEntryMessage(msg.content, msg.direction) : false);
+            
+            // Check if this is a broadcast message
+            const isBroadcast = msg.source === "broadcast";
 
             return (
               <div key={msg.id || msg._id || idx}>
@@ -185,8 +189,8 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
                   </div>
                 )}
                 
-                {/* Render as system banner for agent entry messages */}
-                {isAgentEntry ? (
+                {/* Render as system banner for system messages */}
+                {isSystemMessage ? (
                   <div className="flex justify-center my-2">
                     <div className="w-full bg-slate-50 rounded-md py-1 px-3 flex items-center justify-center gap-2">
                       <UserRound className="h-3 w-3 text-muted-foreground" />
@@ -202,7 +206,9 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
                         "max-w-[75%] px-3 py-2 text-sm",
                         isInbound
                           ? "bg-card border border-border text-foreground rounded-lg rounded-tl-none"
-                          : "bg-emerald-100 text-emerald-900 rounded-lg rounded-tr-none"
+                          : isBroadcast
+                            ? "bg-purple-50 text-purple-900 rounded-lg rounded-tr-none border border-purple-200"
+                            : "bg-emerald-100 text-emerald-900 rounded-lg rounded-tr-none"
                       )}
                     >
                       {/* Render image from image_media_id */}
@@ -230,9 +236,23 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
                           "flex items-center gap-1 mt-1",
                           isInbound ? "justify-start" : "justify-end"
                         )}>
+                          {/* Source icons for outbound messages */}
+                          {!isInbound && isBroadcast && (
+                            <Megaphone className="h-3 w-3 text-purple-600" />
+                          )}
+                          {!isInbound && msg.source === "bot" && (
+                            <Bot className="h-3 w-3 text-emerald-600" />
+                          )}
+                          {!isInbound && msg.source === "agent" && (
+                            <UserRound className="h-3 w-3 text-emerald-600" />
+                          )}
                           <span className={cn(
                             "text-xs opacity-70",
-                            isInbound ? "text-muted-foreground" : "text-emerald-700"
+                            isInbound 
+                              ? "text-muted-foreground" 
+                              : isBroadcast 
+                                ? "text-purple-700" 
+                                : "text-emerald-700"
                           )}>
                             {new Date(normalizeUTC(time)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
