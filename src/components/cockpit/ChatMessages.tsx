@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { SecureImage } from "./SecureImage";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Check, CheckCheck } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
+
+export type MessageStatus = "sending" | "sent" | "delivered" | "read";
 
 export interface Message {
   id?: string;
@@ -15,6 +17,7 @@ export interface Message {
   timestamp?: string;
   created_at?: string;
   image_media_id?: string;
+  status?: MessageStatus;
 }
 
 interface ChatMessagesProps {
@@ -67,6 +70,20 @@ function TypingIndicator() {
       </div>
     </div>
   );
+}
+
+function DeliveryStatus({ status }: { status?: MessageStatus }) {
+  if (!status || status === "sending") {
+    return <Check className="h-3 w-3 text-primary-foreground/50" />;
+  }
+  if (status === "sent") {
+    return <Check className="h-3 w-3 text-primary-foreground/70" />;
+  }
+  if (status === "delivered") {
+    return <CheckCheck className="h-3 w-3 text-primary-foreground/70" />;
+  }
+  // read
+  return <CheckCheck className="h-3 w-3 text-sky-300" />;
 }
 
 export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: ChatMessagesProps) {
@@ -160,12 +177,18 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
                       <p className="whitespace-pre-wrap break-words">{cleanContent(msg.content)}</p>
                     )}
                     {time && (
-                      <p className={cn(
-                        "text-xs mt-1 opacity-70",
-                        isUser ? "text-muted-foreground" : "text-primary-foreground/70"
+                      <div className={cn(
+                        "flex items-center gap-1 mt-1",
+                        isUser ? "justify-start" : "justify-end"
                       )}>
-                        {new Date(normalizeUTC(time)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
+                        <span className={cn(
+                          "text-xs opacity-70",
+                          isUser ? "text-muted-foreground" : "text-primary-foreground/70"
+                        )}>
+                          {new Date(normalizeUTC(time)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {!isUser && <DeliveryStatus status={msg.status} />}
+                      </div>
                     )}
                   </div>
                 </div>
