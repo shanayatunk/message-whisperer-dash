@@ -1,8 +1,9 @@
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Bot, UserCheck, CheckCircle } from "lucide-react";
 import { Ticket } from "./TicketCard";
 import { ChatHeader } from "./ChatHeader";
 import { ChatMessages, Message } from "./ChatMessages";
 import { MessageInput } from "./MessageInput";
+import { cn } from "@/lib/utils";
 
 interface ActiveChatProps {
   ticket: Ticket | null;
@@ -16,6 +17,31 @@ interface ActiveChatProps {
   onAssign: (userId: string) => void;
   onResolve: () => void;
   onSendMessage: (message: string) => void;
+}
+
+function ConversationStatusBanner({ status }: { status: string }) {
+  if (status === "human_needed") {
+    return (
+      <div className="w-full px-4 py-2 bg-amber-100 text-amber-800 text-center text-sm">
+        👨‍💻 Human Support Active - Bot is paused for this chat.
+      </div>
+    );
+  }
+
+  if (status === "resolved") {
+    return (
+      <div className="w-full px-4 py-2 bg-emerald-100 text-emerald-800 text-center text-sm">
+        ✅ This conversation is resolved.
+      </div>
+    );
+  }
+
+  // Default: pending or other statuses
+  return (
+    <div className="w-full px-4 py-2 bg-muted text-muted-foreground text-center text-sm">
+      🤖 Bot is handling this conversation.
+    </div>
+  );
 }
 
 export function ActiveChat({
@@ -51,6 +77,8 @@ export function ActiveChat({
         onAssign={onAssign}
         onResolve={onResolve}
       />
+
+      <ConversationStatusBanner status={ticket.status} />
 
       <ChatMessages
         messages={messages}
