@@ -227,10 +227,11 @@ export default function Broadcasts() {
         method: "POST",
         body: JSON.stringify({
           business_id: businessId,
-          template_id: selectedTemplate,
+          template_name: selectedTemplate,
+          audience_type: "custom",
           is_test: true,
           test_phone: testPhone.trim(),
-          ...getTemplatePayload(),
+          params: getTemplatePayload(),
         }),
       });
 
@@ -261,9 +262,9 @@ export default function Broadcasts() {
         method: "POST",
         body: JSON.stringify({
           business_id: businessId,
-          template_id: selectedTemplate,
-          audience_id: selectedAudience,
-          ...getTemplatePayload(),
+          template_name: selectedTemplate,
+          audience_type: selectedAudience,
+          params: getTemplatePayload(),
         }),
       });
 
