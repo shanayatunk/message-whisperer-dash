@@ -21,8 +21,12 @@ interface TicketCardProps {
   onClick: () => void;
 }
 
+const normalizeUTC = (dateStr: string) =>
+  dateStr.endsWith("Z") ? dateStr : `${dateStr}Z`;
+
 export function TicketCard({ ticket, isSelected, onClick }: TicketCardProps) {
-  const timeAgo = formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true });
+  const createdAt = new Date(normalizeUTC(ticket.created_at));
+  const timeAgo = formatDistanceToNow(createdAt, { addSuffix: true });
   const isHumanNeeded = ticket.status === "human_needed";
 
   return (

@@ -68,8 +68,14 @@ export default function Conversations() {
     enabled: !!selectedTicket,
   });
 
-  // Combine fetched messages with optimistic ones
-  const allMessages = [...(messagesData || []), ...optimisticMessages];
+  // Combine fetched messages with optimistic ones, sorted chronologically
+  const allMessages = [...(messagesData || []), ...optimisticMessages].sort(
+    (a, b) => {
+      const tA = new Date(a.timestamp || a.created_at || 0).getTime();
+      const tB = new Date(b.timestamp || b.created_at || 0).getTime();
+      return tA - tB;
+    }
+  );
 
   // Assign mutation
   const assignMutation = useMutation({
