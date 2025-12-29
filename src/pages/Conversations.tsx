@@ -163,8 +163,15 @@ export default function Conversations() {
     sendMutation.mutate({ ticketId: selectedTicket._id, message });
   };
 
-  const handleTicketUpdate = () => {
-    refetchTickets();
+  const handleTicketUpdate = async () => {
+    const result = await refetchTickets();
+    // Update selectedTicket with fresh data from refetch
+    if (selectedTicket && result.data) {
+      const updatedTicket = result.data.find((t) => t._id === selectedTicket._id);
+      if (updatedTicket) {
+        setSelectedTicket(updatedTicket);
+      }
+    }
   };
 
   return (
