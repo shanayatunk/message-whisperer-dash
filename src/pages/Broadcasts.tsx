@@ -130,13 +130,29 @@ export default function Broadcasts() {
       const data = await apiRequest<any>(
         `/api/v1/broadcasts/config?business_id=${businessId}`
       );
-      // Safely extract arrays from various response structures
-      const allowed_templates = Array.isArray(data?.allowed_templates) 
-        ? data.allowed_templates 
+      
+      // 1. Get the raw list (handle both keys for safety)
+      const rawTemplates = data?.templates || data?.allowed_templates || [];
+      
+      // 2. Transform strings into objects
+      const allowed_templates = Array.isArray(rawTemplates) 
+        ? rawTemplates.map((t: any) => {
+            // If it's just a string ("hello_world"), make it an object
+            if (typeof t === 'string') {
+              return {
+                id: t,
+                name: t
+                  .replace(/_/g, " ") // Replace underscores with spaces
+                  .replace(/\b\w/g, (l) => l.toUpperCase()) // Title Case
+              };
+            }
+            // If it's already an object (legacy fix), keep it
+            return t;
+          })
         : [];
-      const audiences = Array.isArray(data?.audiences) 
-        ? data.audiences 
-        : [];
+      
+      // 3. Set State
+      const audiences = Array.isArray(data?.audiences) ? data.audiences : [];
       setConfig({ allowed_templates, audiences });
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "Failed to load config";
