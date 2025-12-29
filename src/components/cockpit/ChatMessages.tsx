@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { SecureImage } from "./SecureImage";
-import { ChevronDown, Check, CheckCheck } from "lucide-react";
+import { ChevronDown, Check, CheckCheck, UserRound } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 
 export type MessageStatus = "sending" | "sent" | "delivered" | "read";
@@ -47,6 +47,12 @@ function extractVisualSearchMediaId(content: string): string | null {
 
 function isVisualSearchContent(content: string): boolean {
   return content.includes("visual_search_");
+}
+
+function isAgentEntryMessage(content: string, direction?: string): boolean {
+  if (direction !== "outbound") return false;
+  const cleaned = cleanContent(content);
+  return cleaned.startsWith("👋 Hi, I'm");
 }
 
 const normalizeUTC = (dateStr: string) =>
@@ -166,6 +172,9 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
             const visualSearchMediaId = msg.content ? extractVisualSearchMediaId(msg.content) : null;
             const hasVisualSearch = msg.content ? isVisualSearchContent(msg.content) : false;
 
+            // Check if this is an agent entry system message
+            const isAgentEntry = msg.content ? isAgentEntryMessage(msg.content, msg.direction) : false;
+
             return (
               <div key={msg.id || msg._id || idx}>
                 {showDateSeparator && (
@@ -175,51 +184,64 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
                     </span>
                   </div>
                 )}
-                <div className={cn("flex", isInbound ? "justify-start" : "justify-end")}>
-                  <div
-                    className={cn(
-                      "max-w-[75%] px-3 py-2 text-sm",
-                      isInbound
-                        ? "bg-card border border-border text-foreground rounded-lg rounded-tl-none"
-                        : "bg-emerald-100 text-emerald-900 rounded-lg rounded-tr-none"
-                    )}
-                  >
-                    {/* Render image from image_media_id */}
-                    {msg.image_media_id && (
-                      <SecureImage
-                        mediaId={msg.image_media_id}
-                        alt="Message attachment"
-                        className="mb-2 rounded-lg max-w-[200px]"
-                      />
-                    )}
-                    {/* Render image from visual_search pattern */}
-                    {!msg.image_media_id && hasVisualSearch && visualSearchMediaId && (
-                      <SecureImage
-                        mediaId={visualSearchMediaId}
-                        alt="Visual search image"
-                        className="mb-2 rounded-lg max-w-[200px]"
-                      />
-                    )}
-                    {/* Render text content (skip if it's only a visual_search pattern) */}
-                    {msg.content && !hasVisualSearch && (
-                      <p className="whitespace-pre-wrap break-words">{cleanContent(msg.content)}</p>
-                    )}
-                    {time && (
-                      <div className={cn(
-                        "flex items-center gap-1 mt-1",
-                        isInbound ? "justify-start" : "justify-end"
-                      )}>
-                        <span className={cn(
-                          "text-xs opacity-70",
-                          isInbound ? "text-muted-foreground" : "text-emerald-700"
-                        )}>
-                          {new Date(normalizeUTC(time)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        {!isInbound && <DeliveryStatus status={msg.status} />}
-                      </div>
-                    )}
+                
+                {/* Render as system banner for agent entry messages */}
+                {isAgentEntry ? (
+                  <div className="flex justify-center my-2">
+                    <div className="w-full bg-slate-50 rounded-md py-1 px-3 flex items-center justify-center gap-2">
+                      <UserRound className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">
+                        {cleanContent(msg.content)}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className={cn("flex", isInbound ? "justify-start" : "justify-end")}>
+                    <div
+                      className={cn(
+                        "max-w-[75%] px-3 py-2 text-sm",
+                        isInbound
+                          ? "bg-card border border-border text-foreground rounded-lg rounded-tl-none"
+                          : "bg-emerald-100 text-emerald-900 rounded-lg rounded-tr-none"
+                      )}
+                    >
+                      {/* Render image from image_media_id */}
+                      {msg.image_media_id && (
+                        <SecureImage
+                          mediaId={msg.image_media_id}
+                          alt="Message attachment"
+                          className="mb-2 rounded-lg max-w-[200px]"
+                        />
+                      )}
+                      {/* Render image from visual_search pattern */}
+                      {!msg.image_media_id && hasVisualSearch && visualSearchMediaId && (
+                        <SecureImage
+                          mediaId={visualSearchMediaId}
+                          alt="Visual search image"
+                          className="mb-2 rounded-lg max-w-[200px]"
+                        />
+                      )}
+                      {/* Render text content (skip if it's only a visual_search pattern) */}
+                      {msg.content && !hasVisualSearch && (
+                        <p className="whitespace-pre-wrap break-words">{cleanContent(msg.content)}</p>
+                      )}
+                      {time && (
+                        <div className={cn(
+                          "flex items-center gap-1 mt-1",
+                          isInbound ? "justify-start" : "justify-end"
+                        )}>
+                          <span className={cn(
+                            "text-xs opacity-70",
+                            isInbound ? "text-muted-foreground" : "text-emerald-700"
+                          )}>
+                            {new Date(normalizeUTC(time)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          {!isInbound && <DeliveryStatus status={msg.status} />}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
