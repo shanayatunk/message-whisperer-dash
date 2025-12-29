@@ -568,13 +568,31 @@ export default function Broadcasts() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {history?.map((job) => (
+                    {history?.map((job: any) => (
                       <TableRow key={job.id}>
-                        <TableCell className="text-sm">
-                          {format(new Date(job.created_at), "MMM d, yyyy HH:mm")}
+                        <TableCell className="whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {job.created_at ? new Date(job.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : "-"}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {job.created_at ? new Date(job.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : "-"}
+                            </span>
+                          </div>
                         </TableCell>
-                        <TableCell className="font-medium">{job.template_name}</TableCell>
-                        <TableCell>{job.audience_name}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Megaphone className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">
+                              {job.message?.replace("Template: ", "") || job.template_name || "Unknown Template"}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {job.target_type || job.audience || "All Customers"}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-right">{job.sent_count}</TableCell>
                         <TableCell>{getStatusBadge(job.status)}</TableCell>
                       </TableRow>
