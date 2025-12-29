@@ -4,6 +4,7 @@ import { apiRequest, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -38,8 +39,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Radio, Loader2, Send, RefreshCw, History, Megaphone, Eye } from "lucide-react";
+import { Radio, Loader2, Send, RefreshCw, History, Megaphone, Eye, Smartphone } from "lucide-react";
 import { format } from "date-fns";
 
 // Types for API responses
@@ -97,6 +104,11 @@ export default function Broadcasts() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
   const [result, setResult] = useState<BroadcastResult | null>(null);
+
+  // Test dialog state
+  const [showTestDialog, setShowTestDialog] = useState(false);
+  const [testPhone, setTestPhone] = useState("");
+  const [isSendingTest, setIsSendingTest] = useState(false);
 
   // Fetch config on mount
   useEffect(() => {
@@ -166,6 +178,51 @@ export default function Broadcasts() {
   const handleSendClick = () => {
     if (!selectedTemplate || !selectedAudience) return;
     setShowConfirmDialog(true);
+  };
+
+  const handleTestClick = () => {
+    if (!selectedTemplate) return;
+    setShowTestDialog(true);
+  };
+
+  const handleSendTest = async () => {
+    if (!testPhone.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter a phone number",
+      });
+      return;
+    }
+
+    setIsSendingTest(true);
+    try {
+      await apiRequest("/api/v1/broadcasts/send", {
+        method: "POST",
+        body: JSON.stringify({
+          business_id: businessId,
+          template_id: selectedTemplate,
+          is_test: true,
+          test_phone: testPhone.trim(),
+        }),
+      });
+
+      toast({
+        title: "Test Sent",
+        description: "Test message sent! Check your phone.",
+      });
+      setShowTestDialog(false);
+      setTestPhone("");
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Failed to send test";
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: message,
+      });
+    } finally {
+      setIsSendingTest(false);
+    }
   };
 
   const handleConfirmSend = async () => {
@@ -355,10 +412,10 @@ export default function Broadcasts() {
                     <SelectContent className="bg-popover">
                       {config.audiences?.map((a) => (
                         <SelectItem key={a.id} value={a.id}>
-                          {a.name}
+                          <span>{a.name}</span>
                           {a.count !== undefined && (
-                            <span className="ml-2 text-muted-foreground">
-                              ({a.count.toLocaleString()})
+                            <span className="ml-2 text-muted-foreground text-xs">
+                              ({a.count.toLocaleString()} users)
                             </span>
                           )}
                         </SelectItem>
@@ -367,24 +424,44 @@ export default function Broadcasts() {
                   </Select>
                 </div>
 
-                {/* Send Button */}
-                <Button
-                  onClick={handleSendClick}
-                  disabled={!canSubmit}
-                  className="w-full"
-                >
-                  {isSending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="mr-2 h-4 w-4" />
-                      Send Campaign
-                    </>
-                  )}
-                </Button>
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          onClick={handleTestClick}
+                          disabled={!selectedTemplate || isSending}
+                        >
+                          <Smartphone className="mr-2 h-4 w-4" />
+                          Send Test
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Send a preview to your own phone</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <Button
+                    onClick={handleSendClick}
+                    disabled={!canSubmit}
+                    className="flex-1"
+                  >
+                    {isSending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 h-4 w-4" />
+                        Send Campaign
+                      </>
+                    )}
+                  </Button>
+                </div>
               </>
             )}
           </CardContent>
@@ -493,6 +570,57 @@ export default function Broadcasts() {
           <DialogFooter>
             <Button onClick={() => setShowResultModal(false)} className="w-full">
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Test Dialog */}
+      <Dialog open={showTestDialog} onOpenChange={setShowTestDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send Test Message</DialogTitle>
+            <DialogDescription>
+              Send a preview of "{selectedTemplateData?.name}" to your phone
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="test-phone">Test Phone Number</Label>
+              <Input
+                id="test-phone"
+                type="tel"
+                placeholder="+1234567890"
+                value={testPhone}
+                onChange={(e) => setTestPhone(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter your phone number with country code
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowTestDialog(false)}
+              disabled={isSendingTest}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSendTest} disabled={isSendingTest || !testPhone.trim()}>
+              {isSendingTest ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Smartphone className="mr-2 h-4 w-4" />
+                  Send Preview
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
