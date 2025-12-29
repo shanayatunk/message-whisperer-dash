@@ -46,7 +46,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Radio, Loader2, Send, RefreshCw, History, Megaphone, Eye, Smartphone } from "lucide-react";
+import { Radio, Loader2, Send, RefreshCw, History, Megaphone, Eye, Smartphone, Image, Video } from "lucide-react";
 import { format } from "date-fns";
 
 // Types for API responses
@@ -501,6 +501,28 @@ export default function Broadcasts() {
     }
   };
 
+  // Live preview text helper
+  const getPreviewText = (templateBody: string): string => {
+    if (!templateBody) return "";
+    
+    let text = templateBody;
+    
+    // Replace {{1}} with placeholder name
+    text = text.replace(/\{\{1\}\}/g, "Shanaya");
+    
+    // Template-specific replacements
+    if (selectedTemplate === "festival_sale_alert") {
+      text = text.replace(/\{\{2\}\}/g, discountPercent || "..");
+      text = text.replace(/\{\{3\}\}/g, couponCode || "..");
+      text = text.replace(/\{\{4\}\}/g, expiryDate || "..");
+    }
+    
+    return text;
+  };
+
+  // Check if template has a button (all except gentle_greeting)
+  const hasButton = selectedTemplate && selectedTemplate !== "gentle_greeting_v1";
+
   const getStatusBadge = (status: BroadcastJob["status"]) => {
     switch (status) {
       case "completed":
@@ -728,7 +750,7 @@ export default function Broadcasts() {
               <Eye className="h-4 w-4" />
               Template Preview
             </CardTitle>
-            <CardDescription>Preview of the selected template</CardDescription>
+            <CardDescription>Live preview of your message</CardDescription>
           </CardHeader>
           <CardContent>
             {!selectedTemplateData ? (
@@ -736,28 +758,60 @@ export default function Broadcasts() {
                 Select a template to preview
               </div>
             ) : (
-              <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-3">
-                {selectedTemplateData.header && (
-                  <div>
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Header
-                    </span>
-                    <p className="text-sm font-medium mt-1">{selectedTemplateData.header}</p>
+              <div className="space-y-3">
+                {/* WhatsApp Message Bubble */}
+                <div className="bg-[#dcf8c6] rounded-lg p-3 relative max-w-[280px]">
+                  {/* Header */}
+                  {selectedTemplateData.header && (
+                    <div className="mb-2">
+                      {selectedTemplateData.header === "IMAGE" ? (
+                        headerMediaUrl ? (
+                          <img 
+                            src={headerMediaUrl} 
+                            alt="Header" 
+                            className="w-full h-32 object-cover rounded-md"
+                          />
+                        ) : (
+                          <div className="w-full h-32 bg-gray-300 rounded-md flex items-center justify-center">
+                            <span className="text-gray-600 text-sm">📷 Image Header</span>
+                          </div>
+                        )
+                      ) : selectedTemplateData.header === "VIDEO" ? (
+                        <div className="w-full h-32 bg-gray-300 rounded-md flex items-center justify-center">
+                          <span className="text-gray-600 text-sm">🎥 Video Header</span>
+                        </div>
+                      ) : selectedTemplateData.header.startsWith("TEXT:") ? (
+                        <p className="font-bold text-gray-900 text-sm">
+                          {selectedTemplateData.header.replace("TEXT:", "").trim()}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {/* Body */}
+                  <p className="text-sm text-gray-900 whitespace-pre-wrap">
+                    {getPreviewText(selectedTemplateData.body || "Template body content...")}
+                  </p>
+
+                  {/* Footer Timestamp */}
+                  <div className="flex justify-end mt-1">
+                    <span className="text-[10px] text-gray-500">12:00 PM</span>
+                  </div>
+                </div>
+
+                {/* Button (outside the bubble) */}
+                {hasButton && (
+                  <div className="max-w-[280px]">
+                    <div className="bg-[#dcf8c6] rounded-lg p-2 text-center border-t border-[#c5e8b0]">
+                      <span className="text-sm text-blue-600 font-medium">Visit Website</span>
+                    </div>
                   </div>
                 )}
-                <div>
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Body
-                  </span>
-                  <p className="text-sm mt-1">
-                    {selectedTemplateData.body || "Template body content will appear here..."}
-                  </p>
-                </div>
-                <div className="pt-2 border-t border-border">
-                  <span className="text-xs text-muted-foreground">
-                    Template ID: {selectedTemplateData.id}
-                  </span>
-                </div>
+
+                {/* Disclaimer */}
+                <p className="text-xs text-muted-foreground mt-3">
+                  ⚠️ Preview approximate. Actual formatting controlled by Meta.
+                </p>
               </div>
             )}
           </CardContent>
