@@ -20,6 +20,17 @@ interface ChatMessagesProps {
   isError: boolean;
 }
 
+function cleanContent(content: string): string {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed?.body) return parsed.body;
+    if (parsed?.text?.body) return parsed.text.body;
+  } catch {
+    // Not JSON
+  }
+  return content;
+}
+
 export function ChatMessages({ messages, isLoading, isError }: ChatMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -86,7 +97,7 @@ export function ChatMessages({ messages, isLoading, isError }: ChatMessagesProps
                   />
                 )}
                 {msg.content && (
-                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  <p className="whitespace-pre-wrap break-words">{cleanContent(msg.content)}</p>
                 )}
                 {time && (
                   <p className={cn(
