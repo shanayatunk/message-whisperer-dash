@@ -598,8 +598,7 @@ export default function Broadcasts() {
                       <TableHead>Date</TableHead>
                       <TableHead>Template</TableHead>
                       <TableHead>Audience</TableHead>
-                      <TableHead>Delivery</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>Delivery / Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -618,10 +617,20 @@ export default function Broadcasts() {
                           <TableCell className="whitespace-nowrap">
                             <div className="flex flex-col">
                               <span className="font-medium">
-                                {job.created_at ? new Date(job.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : "-"}
+                                {job.created_at ? new Date(job.created_at).toLocaleDateString('en-IN', { 
+                                  timeZone: 'Asia/Kolkata', 
+                                  month: 'short', 
+                                  day: 'numeric', 
+                                  year: 'numeric' 
+                                }) : "-"}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                {job.created_at ? new Date(job.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : "-"}
+                                {job.created_at ? new Date(job.created_at).toLocaleTimeString('en-IN', { 
+                                  timeZone: 'Asia/Kolkata', 
+                                  hour: '2-digit', 
+                                  minute: '2-digit',
+                                  hour12: true
+                                }) : "-"}
                               </span>
                             </div>
                           </TableCell>
@@ -638,70 +647,51 @@ export default function Broadcasts() {
                               {job.target_type || job.audience || "All Customers"}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-3 min-w-[180px]">
-                              {/* Delivered Mini Bar */}
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="flex items-center gap-1.5">
-                                      <div className="w-12 h-2 bg-muted rounded-full overflow-hidden">
-                                        <div 
-                                          className="h-full bg-green-500 rounded-full transition-all duration-500"
-                                          style={{ width: `${Math.min(deliveredPct, 100)}%` }}
-                                        />
-                                      </div>
-                                      <span className="text-xs font-medium text-green-600 w-6">{delivered}</span>
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>{delivered} Delivered ({deliveredPct}%)</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                              
-                              {/* Read Mini Bar */}
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="flex items-center gap-1.5">
-                                      <div className="w-12 h-2 bg-muted rounded-full overflow-hidden">
-                                        <div 
-                                          className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                                          style={{ width: `${Math.min(readPct, 100)}%` }}
-                                        />
-                                      </div>
-                                      <span className="text-xs font-medium text-blue-600 w-6">{read}</span>
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>{read} Read ({readPct}%)</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                              
-                              {/* Failed Mini Bar */}
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="flex items-center gap-1.5">
-                                      <div className="w-12 h-2 bg-muted rounded-full overflow-hidden">
-                                        <div 
-                                          className="h-full bg-red-500 rounded-full transition-all duration-500"
-                                          style={{ width: `${Math.min(failedPct, 100)}%` }}
-                                        />
-                                      </div>
-                                      <span className="text-xs font-medium text-red-600 w-6">{failed}</span>
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>{failed} Failed ({failedPct}%)</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                          <TableCell className="min-w-[200px]">
+                            <div className="space-y-1.5">
+                              {/* Status Badge */}
+                              <div className="flex items-center gap-2">
+                                {job.status === 'processing' ? (
+                                  <Badge variant="secondary" className="gap-1 animate-pulse">
+                                    <Loader2 className="h-3 w-3 animate-spin" /> Processing
+                                  </Badge>
+                                ) : (
+                                  <Badge variant={job.status === 'completed' ? 'default' : 'secondary'}>
+                                    {job.status || 'Unknown'}
+                                  </Badge>
+                                )}
+                              </div>
+                              {/* Stats Bars (Only show if total > 0) */}
+                              {total > 0 ? (
+                                <div className="space-y-1">
+                                  <div className="flex h-2 w-full overflow-hidden rounded-full bg-secondary">
+                                    {/* Delivered (Green) */}
+                                    <div 
+                                      className="bg-green-500 transition-all duration-500" 
+                                      style={{ width: `${(delivered / total) * 100}%` }} 
+                                    />
+                                    {/* Read (Blue) */}
+                                    <div 
+                                      className="bg-blue-500 transition-all duration-500" 
+                                      style={{ width: `${(read / total) * 100}%` }} 
+                                    />
+                                    {/* Failed (Red) */}
+                                    <div 
+                                      className="bg-red-500 transition-all duration-500" 
+                                      style={{ width: `${(failed / total) * 100}%` }} 
+                                    />
+                                  </div>
+                                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                                    <span className="text-green-600 font-medium">{delivered} Del</span>
+                                    <span className="text-blue-600 font-medium">{read} Read</span>
+                                    <span className="text-red-600 font-medium">{failed} Fail</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">No recipients</span>
+                              )}
                             </div>
                           </TableCell>
-                          <TableCell>{getStatusBadge(job.status)}</TableCell>
                         </TableRow>
                       );
                     })}
