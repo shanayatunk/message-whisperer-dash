@@ -3,12 +3,13 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, MessageSquare, Radio, LogOut, Menu } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Radio, Package, LogOut, Menu } from "lucide-react";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/conversations", label: "Conversations", icon: MessageSquare },
   { path: "/broadcasts", label: "Broadcasts", icon: Radio },
+  { path: "/packing", label: "Packing", icon: Package },
 ];
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
