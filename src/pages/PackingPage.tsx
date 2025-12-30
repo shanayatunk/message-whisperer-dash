@@ -14,8 +14,8 @@ import { packingApi, PackingOrder, PackingConfig } from "@/lib/packingApi";
 
 const BUSINESS_OPTIONS = [
   { id: "feelori", label: "Feelori" },
-  { id: "GoldenCollections", label: "GoldenCollections" },
-  { id: "GodJewellery9", label: "GodJewellery9" },
+  { id: "goldencollections", label: "GoldenCollections" },
+  { id: "godjewellery9", label: "GodJewellery9" },
 ];
 
 export default function PackingPage() {
