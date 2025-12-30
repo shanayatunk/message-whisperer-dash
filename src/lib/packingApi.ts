@@ -92,23 +92,29 @@ export const packingApi = {
       `/api/v1/packing/orders${statusParam}`
     );
     
-    // LOGGING: Show exactly what the backend sends in the browser console
-    console.log(`[getOrders] Raw response for ${status}:`, response);
+    console.log(`[getOrders] Raw response:`, response);
     
-    // MAPPING: Handle all possible ID variations
     return (response.data.orders || []).map((order: any) => {
-      // Try to find a valid ID in this order of preference
-      const validId = order.order_id || order.id || order._id || "";
-      
+      // 1. Resolve Customer Name
+      // Check nested object first, then flat fields, then fallback
+      let customerName = "Guest";
+      if (order.customer && typeof order.customer === 'object') {
+        customerName = order.customer.name || 
+                       (order.customer.first_name ? `${order.customer.first_name} ${order.customer.last_name || ''}` : "Guest");
+      } else if (order.customer_name) {
+        customerName = order.customer_name;
+      }
+
+      // 2. Resolve Order Number (Display Name)
+      // Prefer 'name' (e.g. #FO1067) -> then 'order_number' (e.g. 1067) -> then ID
+      const displayNumber = order.name || order.order_number || String(order.id);
+
       return {
         ...order,
-        // Ensure we catch the new 'order_id' sent from backend
         order_id: String(order.order_id || order.id || order._id || ""),
-        // Prefer 'name' which holds the prefix like "FO"
-        order_number: order.name || order.order_number || "???",
-        customer_name: order.customer?.name || "Unknown Customer",
-        // Calculate total quantity (sum of item quantities), not just array length
-        item_count: order.items?.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0) || 0
+        order_number: displayNumber, 
+        customer_name: customerName,
+        item_count: order.items?.length || 0
       };
     });
   },
