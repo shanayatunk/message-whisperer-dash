@@ -635,8 +635,22 @@ export default function Broadcasts() {
                           )}
                         </SelectItem>
                       ))}
+                      {/* Smart Segment: Engaged */}
+                      <SelectItem value="engaged">
+                        <span>🔥 Engaged (Readers - 30d)</span>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
+                  
+                  {/* Engaged segment info alert */}
+                  {selectedAudience === "engaged" && (
+                    <div className="flex items-start gap-2 p-3 rounded-md bg-primary/10 border border-primary/20 text-sm">
+                      <span className="text-primary">ℹ️</span>
+                      <p className="text-primary/90">
+                        Targeting active users (Reads + Replies) typically results in <strong>3x higher conversion rates</strong>.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Buttons */}
