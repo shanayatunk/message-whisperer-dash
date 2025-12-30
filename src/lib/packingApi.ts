@@ -110,11 +110,12 @@ export const packingApi = {
   },
 
   startOrder: async (businessId: string, orderId: string): Promise<void> => {
-    await packingRequest<void>(businessId, `/orders/${orderId}/start`, { method: "POST" });
+    console.log("Starting order:", orderId);
+    await packingRequest<void>(businessId, `/packing/orders/${orderId}/start`, { method: "POST" });
   },
 
   holdOrder: async (businessId: string, orderId: string, reason: string, notes: string): Promise<void> => {
-    await packingRequest<void>(businessId, `/orders/${orderId}/hold`, {
+    await packingRequest<void>(businessId, `/packing/orders/${orderId}/hold`, {
       method: "POST",
       body: JSON.stringify({ reason, notes }),
     });
@@ -127,7 +128,7 @@ export const packingApi = {
     carrier: string,
     trackingNumber: string
   ): Promise<void> => {
-    await packingRequest<void>(businessId, `/orders/${orderId}/fulfill`, {
+    await packingRequest<void>(businessId, `/packing/orders/${orderId}/fulfill`, {
       method: "POST",
       body: JSON.stringify({ 
         packer_name: packer,
@@ -135,6 +136,10 @@ export const packingApi = {
         tracking_number: trackingNumber 
       }),
     });
+  },
+
+  requeueOrder: async (businessId: string, orderId: string): Promise<void> => {
+    await packingRequest<void>(businessId, `/packing/orders/${orderId}/requeue`, { method: "POST" });
   },
 
   getMetrics: async (businessId: string): Promise<PackingMetrics> => {
