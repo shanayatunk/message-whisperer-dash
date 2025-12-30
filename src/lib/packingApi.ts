@@ -78,6 +78,6 @@ export const packingApi = {
   ): Promise<void> =>
     packingRequest<void>(businessId, `/orders/${orderId}/fulfill`, {
       method: "POST",
-      body: JSON.stringify({ packer, carrier, tracking_number: trackingNumber }),
+      body: JSON.stringify({ packer_name: packer, carrier, tracking_number: trackingNumber }),
     }),
 };
