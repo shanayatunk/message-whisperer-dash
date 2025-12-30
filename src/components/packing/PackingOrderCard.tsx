@@ -19,11 +19,20 @@ export function PackingOrderCard({
   onHold,
   onFulfill,
 }: PackingOrderCardProps) {
+  // Safety check: disable actions if order_id is missing
+  const hasValidId = Boolean(order.order_id);
+
   const renderActions = () => {
     switch (order.status) {
       case "Pending":
         return (
-          <Button size="sm" variant="outline" onClick={() => onStart(order.order_id)} className="gap-1">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={() => onStart(order.order_id)} 
+            className="gap-1"
+            disabled={!hasValidId}
+          >
             <Play className="h-3 w-3" />
             Start
           </Button>
@@ -31,11 +40,22 @@ export function PackingOrderCard({
       case "In Progress":
         return (
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => onHold(order.order_id)} className="gap-1">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => onHold(order.order_id)} 
+              className="gap-1"
+              disabled={!hasValidId}
+            >
               <Pause className="h-3 w-3" />
               Hold
             </Button>
-            <Button size="sm" onClick={() => onFulfill(order.order_id)} className="gap-1">
+            <Button 
+              size="sm" 
+              onClick={() => onFulfill(order.order_id)} 
+              className="gap-1"
+              disabled={!hasValidId}
+            >
               <CheckCircle className="h-3 w-3" />
               Fulfill
             </Button>
@@ -43,7 +63,13 @@ export function PackingOrderCard({
         );
       case "On Hold":
         return (
-          <Button size="sm" variant="outline" onClick={() => onStart(order.order_id)} className="gap-1">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={() => onStart(order.order_id)} 
+            className="gap-1"
+            disabled={!hasValidId}
+          >
             <Play className="h-3 w-3" />
             Resume
           </Button>
