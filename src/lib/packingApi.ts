@@ -19,6 +19,19 @@ export interface PackingConfig {
   carriers: string[];
 }
 
+export interface PackingMetrics {
+  pending: number;
+  in_progress: number;
+  on_hold: number;
+  completed_today: number;
+}
+
+export interface PackerPerformance {
+  name: string;
+  count: number;
+  last_active: string;
+}
+
 // Standard Backend Response Wrapper
 interface ApiResponse<T> {
   success: boolean;
@@ -116,5 +129,23 @@ export const packingApi = {
         tracking_number: trackingNumber 
       }),
     });
+  },
+
+  getMetrics: async (businessId: string): Promise<PackingMetrics> => {
+    const response = await packingRequest<PackingMetrics>(businessId, "/packing/metrics");
+    return {
+      pending: response.data.pending || 0,
+      in_progress: response.data.in_progress || 0,
+      on_hold: response.data.on_hold || 0,
+      completed_today: response.data.completed_today || 0,
+    };
+  },
+
+  getPerformance: async (businessId: string, days: number = 7): Promise<PackerPerformance[]> => {
+    const response = await packingRequest<{ packers: PackerPerformance[] }>(
+      businessId,
+      `/packing/packer-performance?days=${days}`
+    );
+    return response.data.packers || [];
   },
 };
