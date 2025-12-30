@@ -195,7 +195,7 @@ export default function PackingPage() {
     const name = newPackerName.trim();
     if (!name) return;
     try {
-      await apiRequest("/admin/packers", {
+      await apiRequest("/api/v1/admin/packers", {
         method: "POST",
         body: JSON.stringify({ name }),
       });
@@ -214,7 +214,7 @@ export default function PackingPage() {
   // Remove packer
   const handleRemovePacker = async (name: string) => {
     try {
-      await apiRequest(`/admin/packers/${encodeURIComponent(name)}`, {
+      await apiRequest(`/api/v1/admin/packers/${encodeURIComponent(name)}`, {
         method: "DELETE",
       });
       toast({ title: "Packer removed", description: `${name} has been removed from the team.` });
