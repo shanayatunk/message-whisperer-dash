@@ -37,7 +37,7 @@ interface ApiResponse<T> {
   success: boolean;
   message: string;
   data: T;
-  version: string;
+  version?: string; // Make optional to prevent frontend crashes
 }
 
 async function packingRequest<T>(
@@ -71,8 +71,14 @@ async function packingRequest<T>(
   }
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: "Request failed" }));
-    throw new ApiError(response.status, errorData.detail || "Request failed");
+    let errorMsg = "Request failed";
+    try {
+      const errorData = await response.json();
+      errorMsg = errorData.detail || errorData.message || "Request failed";
+    } catch (e) {
+      console.warn("Non-JSON error response", e);
+    }
+    throw new ApiError(response.status, errorMsg);
   }
 
   return response.json();
