@@ -21,14 +21,14 @@ export function PackingOrderCard({
 }: PackingOrderCardProps) {
   const renderActions = () => {
     switch (order.status) {
-      case "pending":
+      case "Pending":
         return (
           <Button size="sm" variant="outline" onClick={() => onStart(order.order_id)} className="gap-1">
             <Play className="h-3 w-3" />
             Start
           </Button>
         );
-      case "in_progress":
+      case "In Progress":
         return (
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => onHold(order.order_id)} className="gap-1">
@@ -41,14 +41,14 @@ export function PackingOrderCard({
             </Button>
           </div>
         );
-      case "on_hold":
+      case "On Hold":
         return (
           <Button size="sm" variant="outline" onClick={() => onStart(order.order_id)} className="gap-1">
             <Play className="h-3 w-3" />
             Resume
           </Button>
         );
-      case "completed":
+      case "Completed":
         return (
           <Badge variant="secondary" className="text-xs">
             Shipped
@@ -79,7 +79,7 @@ export function PackingOrderCard({
         </div>
 
         {/* Hold reason if applicable */}
-        {order.status === "on_hold" && order.hold_reason && (
+        {order.status === "On Hold" && order.hold_reason && (
           <p className="text-xs text-destructive bg-destructive/10 px-2 py-1 rounded">
             Hold: {order.hold_reason}
           </p>

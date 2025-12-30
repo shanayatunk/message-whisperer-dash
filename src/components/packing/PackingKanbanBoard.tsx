@@ -22,28 +22,28 @@ interface KanbanColumn {
 
 const COLUMNS: KanbanColumn[] = [
   {
-    id: "pending",
+    id: "Pending",
     title: "Pending",
     icon: Clock,
     borderColor: "border-l-warning",
     bgColor: "bg-warning/5",
   },
   {
-    id: "in_progress",
+    id: "In Progress",
     title: "In Progress",
     icon: Play,
     borderColor: "border-l-primary",
     bgColor: "bg-primary/5",
   },
   {
-    id: "on_hold",
+    id: "On Hold",
     title: "On Hold",
     icon: Pause,
     borderColor: "border-l-destructive",
     bgColor: "bg-destructive/5",
   },
   {
-    id: "completed",
+    id: "Completed",
     title: "Completed",
     icon: CheckCircle,
     borderColor: "border-l-success",
