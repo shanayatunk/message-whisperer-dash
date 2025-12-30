@@ -2,12 +2,16 @@ import { API_BASE, ApiError } from "./api";
 
 export interface PackingOrder {
   order_id: string;
-  customer_name: string;
-  item_count: number;
-  status: "pending" | "in_progress" | "on_hold" | "completed";
+  order_number: string;
+  customer: { name: string; phone: string };
+  customer_name?: string; // Computed field for frontend compatibility
+  item_count?: number;
+  items?: any[];
+  status: "Pending" | "In Progress" | "On Hold" | "Completed";
   created_at: string;
+  packer_name?: string;
   hold_reason?: string;
-  hold_notes?: string;
+  notes?: string;
 }
 
 export interface PackingConfig {
@@ -15,11 +19,19 @@ export interface PackingConfig {
   carriers: string[];
 }
 
+// Standard Backend Response Wrapper
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  version: string;
+}
+
 async function packingRequest<T>(
   businessId: string,
   endpoint: string,
   options: RequestInit = {}
-): Promise<T> {
+): Promise<ApiResponse<T>> {
   const token = sessionStorage.getItem("auth_token");
 
   const headers: HeadersInit = {
@@ -54,30 +66,46 @@ async function packingRequest<T>(
 }
 
 export const packingApi = {
-  getOrders: (businessId: string): Promise<PackingOrder[]> =>
-    packingRequest<PackingOrder[]>(businessId, "/packing/orders"),
+  getOrders: async (businessId: string): Promise<PackingOrder[]> => {
+    const response = await packingRequest<{ orders: PackingOrder[] }>(businessId, "/packing/orders");
+    
+    return response.data.orders.map(order => ({
+      ...order,
+      customer_name: order.customer?.name || "Unknown",
+      item_count: order.items?.length || 0
+    }));
+  },
 
-  getConfig: (businessId: string): Promise<PackingConfig> =>
-    packingRequest<PackingConfig>(businessId, "/packing/config"),
+  getConfig: async (businessId: string): Promise<PackingConfig> => {
+    const response = await packingRequest<PackingConfig>(businessId, "/packing/config");
+    return response.data;
+  },
 
-  startOrder: (businessId: string, orderId: string): Promise<void> =>
-    packingRequest<void>(businessId, `/orders/${orderId}/start`, { method: "POST" }),
+  startOrder: async (businessId: string, orderId: string): Promise<void> => {
+    await packingRequest<void>(businessId, `/orders/${orderId}/start`, { method: "POST" });
+  },
 
-  holdOrder: (businessId: string, orderId: string, reason: string, notes: string): Promise<void> =>
-    packingRequest<void>(businessId, `/orders/${orderId}/hold`, {
+  holdOrder: async (businessId: string, orderId: string, reason: string, notes: string): Promise<void> => {
+    await packingRequest<void>(businessId, `/orders/${orderId}/hold`, {
       method: "POST",
       body: JSON.stringify({ reason, notes }),
-    }),
+    });
+  },
 
-  fulfillOrder: (
+  fulfillOrder: async (
     businessId: string,
     orderId: string,
     packer: string,
     carrier: string,
     trackingNumber: string
-  ): Promise<void> =>
-    packingRequest<void>(businessId, `/orders/${orderId}/fulfill`, {
+  ): Promise<void> => {
+    await packingRequest<void>(businessId, `/orders/${orderId}/fulfill`, {
       method: "POST",
-      body: JSON.stringify({ packer_name: packer, carrier, tracking_number: trackingNumber }),
-    }),
+      body: JSON.stringify({ 
+        packer_name: packer,
+        carrier, 
+        tracking_number: trackingNumber 
+      }),
+    });
+  },
 };
