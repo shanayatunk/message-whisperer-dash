@@ -102,10 +102,10 @@ export const packingApi = {
       
       return {
         ...order,
-        // Force conversion to string to satisfy the UI
-        order_id: String(validId),
-        // Ensure other display fields exist
-        order_number: order.order_number || "???",
+        // Ensure we catch the new 'order_id' sent from backend
+        order_id: String(order.order_id || order.id || order._id || ""),
+        // Prefer 'name' which holds the prefix like "FO"
+        order_number: order.name || order.order_number || "???",
         customer_name: order.customer?.name || "Unknown Customer",
         // Calculate total quantity (sum of item quantities), not just array length
         item_count: order.items?.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0) || 0
