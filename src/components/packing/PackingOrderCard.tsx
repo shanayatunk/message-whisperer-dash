@@ -113,7 +113,7 @@ export function PackingOrderCard({
         <div className="flex items-start justify-between">
           <div>
             <p className="font-medium text-sm text-foreground">
-              #{order.order_id || "N/A"}
+              {order.order_number || "N/A"}
             </p>
             <p className="text-xs text-muted-foreground">
               {order.customer_name}
