@@ -5,14 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { RefreshCw, Search, Package, Clock, PackageOpen, AlertTriangle, CheckCircle, BarChart3, Loader2 } from "lucide-react";
+import { RefreshCw, Search, Package, Clock, PackageOpen, AlertTriangle, CheckCircle, BarChart3, Loader2, Users, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { PackingKanbanBoard } from "@/components/packing/PackingKanbanBoard";
 import { PackingHoldDialog } from "@/components/packing/PackingHoldDialog";
 import { PackingFulfillDialog } from "@/components/packing/PackingFulfillDialog";
 import { packingApi, PackingOrder, PackingConfig, PackingMetrics, PackerPerformance } from "@/lib/packingApi";
+import { apiRequest } from "@/lib/api";
 
 const BUSINESS_OPTIONS = [
   { id: "feelori", label: "Feelori" },
@@ -42,6 +43,8 @@ export default function PackingPage() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [isManageTeamOpen, setIsManageTeamOpen] = useState(false);
+  const [newPackerName, setNewPackerName] = useState("");
 
   // Fetch orders
   const fetchOrders = useCallback(async () => {
@@ -187,6 +190,44 @@ export default function PackingPage() {
     }
   };
 
+  // Add packer
+  const handleAddPacker = async () => {
+    const name = newPackerName.trim();
+    if (!name) return;
+    try {
+      await apiRequest("/admin/packers", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      toast({ title: "Packer added", description: `${name} has been added to the team.` });
+      setNewPackerName("");
+      fetchConfig();
+    } catch (error) {
+      toast({
+        title: "Failed to add packer",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Remove packer
+  const handleRemovePacker = async (name: string) => {
+    try {
+      await apiRequest(`/admin/packers/${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+      toast({ title: "Packer removed", description: `${name} has been removed from the team.` });
+      fetchConfig();
+    } catch (error) {
+      toast({
+        title: "Failed to remove packer",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Filter orders by search
   const filteredOrders = orders.filter((order) => {
     if (!searchQuery.trim()) return true;
@@ -221,6 +262,17 @@ export default function PackingPage() {
           >
             <BarChart3 className="h-4 w-4" />
             Team Stats
+          </Button>
+
+          {/* Manage Team Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsManageTeamOpen(true)}
+            className="gap-2"
+          >
+            <Users className="h-4 w-4" />
+            Manage Team
           </Button>
 
           {/* Business Selector */}
@@ -399,6 +451,59 @@ export default function PackingPage() {
               </TableBody>
             </Table>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Team Dialog */}
+      <Dialog open={isManageTeamOpen} onOpenChange={setIsManageTeamOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Packing Team</DialogTitle>
+            <DialogDescription>
+              Add new packers. New accounts use default password: 'packer123'.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Existing Packers List */}
+            <div className="space-y-2">
+              {config.packers.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No packers configured
+                </p>
+              ) : (
+                config.packers.map((packer) => (
+                  <div
+                    key={packer}
+                    className="flex items-center justify-between p-2 rounded-md border bg-muted/50"
+                  >
+                    <span className="text-sm font-medium">{packer}</span>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleRemovePacker(packer)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Add Packer Row */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Username"
+                value={newPackerName}
+                onChange={(e) => setNewPackerName(e.target.value.toLowerCase())}
+                onKeyDown={(e) => e.key === "Enter" && handleAddPacker()}
+              />
+              <Button onClick={handleAddPacker} disabled={!newPackerName.trim()}>
+                Add
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
