@@ -106,13 +106,14 @@ export const packingApi = {
       }
 
       // 2. Resolve Order Number (Display Name)
-      // Prefer 'name' (e.g. #FO1067) -> then 'order_number' (e.g. 1067) -> then ID
-      const displayNumber = order.name || order.order_number || String(order.id);
+      // FIX: Force display of the Name (e.g. #FO1067)
+      // If 'name' exists, use it. If not, try 'order_number' with prefix. Only use 'id' as last resort.
+      const displayTitle = order.name || (order.order_number ? `#${order.order_number}` : String(order.id));
 
       return {
         ...order,
         order_id: String(order.order_id || order.id || order._id || ""),
-        order_number: displayNumber, 
+        order_number: displayTitle, 
         customer_name: customerName,
         item_count: order.items?.length || 0
       };
