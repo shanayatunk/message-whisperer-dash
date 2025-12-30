@@ -11,6 +11,7 @@ import Login from "@/pages/Login";
 import DashboardHome from "@/pages/DashboardHome";
 import Conversations from "@/pages/Conversations";
 import Broadcasts from "@/pages/Broadcasts";
+import PackingPage from "@/pages/PackingPage";
 import NotFound from "@/pages/NotFound";
 import Debug from "@/pages/Debug";
 
@@ -69,6 +70,16 @@ const App = () => (
                   <ProtectedRoute>
                     <DashboardLayout>
                       <Broadcasts />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/packing"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout>
+                      <PackingPage />
                     </DashboardLayout>
                   </ProtectedRoute>
                 }
