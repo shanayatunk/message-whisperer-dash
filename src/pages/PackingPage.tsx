@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RefreshCw, Search, Package } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { RefreshCw, Search, Package, Clock, PackageOpen, AlertTriangle, CheckCircle, BarChart3, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { PackingKanbanBoard } from "@/components/packing/PackingKanbanBoard";
 import { PackingHoldDialog } from "@/components/packing/PackingHoldDialog";
 import { PackingFulfillDialog } from "@/components/packing/PackingFulfillDialog";
-import { packingApi, PackingOrder, PackingConfig } from "@/lib/packingApi";
+import { packingApi, PackingOrder, PackingConfig, PackingMetrics, PackerPerformance } from "@/lib/packingApi";
 
 const BUSINESS_OPTIONS = [
   { id: "feelori", label: "Feelori" },
@@ -22,6 +24,13 @@ export default function PackingPage() {
   // State
   const [orders, setOrders] = useState<PackingOrder[]>([]);
   const [config, setConfig] = useState<PackingConfig>({ packers: [], carriers: [] });
+  const [metrics, setMetrics] = useState<PackingMetrics>({
+    pending: 0,
+    in_progress: 0,
+    on_hold: 0,
+    completed_today: 0,
+  });
+  const [leaderboard, setLeaderboard] = useState<PackerPerformance[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState("feelori");
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -31,6 +40,8 @@ export default function PackingPage() {
   const [holdDialogOpen, setHoldDialogOpen] = useState(false);
   const [fulfillDialogOpen, setFulfillDialogOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
 
   // Fetch orders
   const fetchOrders = useCallback(async () => {
@@ -59,18 +70,60 @@ export default function PackingPage() {
     }
   }, [selectedBusiness]);
 
+  // Fetch metrics
+  const fetchMetrics = useCallback(async () => {
+    try {
+      const data = await packingApi.getMetrics(selectedBusiness);
+      setMetrics(data);
+    } catch (error) {
+      console.error("Failed to fetch metrics:", error);
+    }
+  }, [selectedBusiness]);
+
+  // Fetch leaderboard (only when dialog opens)
+  const fetchLeaderboard = useCallback(async () => {
+    setLeaderboardLoading(true);
+    try {
+      const data = await packingApi.getPerformance(selectedBusiness, 7);
+      setLeaderboard(data);
+    } catch (error) {
+      toast({
+        title: "Failed to fetch performance data",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  }, [selectedBusiness]);
+
   // Initial fetch & refetch on business change
   useEffect(() => {
     fetchOrders();
     fetchConfig();
-  }, [fetchOrders, fetchConfig]);
+    fetchMetrics();
+  }, [fetchOrders, fetchConfig, fetchMetrics]);
 
-  // Auto-refresh
+  // Auto-refresh orders (30s)
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(fetchOrders, 30000);
     return () => clearInterval(interval);
   }, [autoRefresh, fetchOrders]);
+
+  // Auto-refresh metrics (60s)
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(fetchMetrics, 60000);
+    return () => clearInterval(interval);
+  }, [autoRefresh, fetchMetrics]);
+
+  // Fetch leaderboard when dialog opens
+  useEffect(() => {
+    if (showLeaderboard) {
+      fetchLeaderboard();
+    }
+  }, [showLeaderboard, fetchLeaderboard]);
 
   // Actions
   const handleStart = async (orderId: string) => {
@@ -78,6 +131,7 @@ export default function PackingPage() {
       await packingApi.startOrder(selectedBusiness, orderId);
       toast({ title: "Order started", description: `Order ${orderId} is now in progress.` });
       fetchOrders();
+      fetchMetrics();
     } catch (error) {
       toast({
         title: "Failed to start order",
@@ -100,6 +154,7 @@ export default function PackingPage() {
       setHoldDialogOpen(false);
       setSelectedOrderId(null);
       fetchOrders();
+      fetchMetrics();
     } catch (error) {
       toast({
         title: "Failed to hold order",
@@ -122,6 +177,7 @@ export default function PackingPage() {
       setFulfillDialogOpen(false);
       setSelectedOrderId(null);
       fetchOrders();
+      fetchMetrics();
     } catch (error) {
       toast({
         title: "Failed to fulfill order",
@@ -137,7 +193,7 @@ export default function PackingPage() {
     const query = searchQuery.toLowerCase();
     return (
       order.order_id.toLowerCase().includes(query) ||
-      order.customer_name.toLowerCase().includes(query)
+      (order.customer_name?.toLowerCase() || "").includes(query)
     );
   });
 
@@ -155,19 +211,83 @@ export default function PackingPage() {
           </p>
         </div>
 
-        {/* Business Selector */}
-        <Select value={selectedBusiness} onValueChange={setSelectedBusiness}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select business" />
-          </SelectTrigger>
-          <SelectContent>
-            {BUSINESS_OPTIONS.map((biz) => (
-              <SelectItem key={biz.id} value={biz.id}>
-                {biz.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-3">
+          {/* Team Stats Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowLeaderboard(true)}
+            className="gap-2"
+          >
+            <BarChart3 className="h-4 w-4" />
+            Team Stats
+          </Button>
+
+          {/* Business Selector */}
+          <Select value={selectedBusiness} onValueChange={setSelectedBusiness}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select business" />
+            </SelectTrigger>
+            <SelectContent>
+              {BUSINESS_OPTIONS.map((biz) => (
+                <SelectItem key={biz.id} value={biz.id}>
+                  {biz.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Pending Queue</p>
+                <p className="text-2xl font-bold">{metrics.pending}</p>
+              </div>
+              <Clock className="h-8 w-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-orange-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">In Progress</p>
+                <p className="text-2xl font-bold">{metrics.in_progress}</p>
+              </div>
+              <PackageOpen className="h-8 w-8 text-orange-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-red-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">On Hold</p>
+                <p className="text-2xl font-bold">{metrics.on_hold}</p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Shipped Today</p>
+                <p className="text-2xl font-bold">{metrics.completed_today}</p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Controls */}
@@ -205,7 +325,7 @@ export default function PackingPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchOrders}
+              onClick={() => { fetchOrders(); fetchMetrics(); }}
               disabled={loading}
               className="gap-2"
             >
@@ -241,6 +361,46 @@ export default function PackingPage() {
         packers={config.packers}
         carriers={config.carriers}
       />
+
+      {/* Team Stats Dialog */}
+      <Dialog open={showLeaderboard} onOpenChange={setShowLeaderboard}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Packer Performance (Last 7 Days)</DialogTitle>
+          </DialogHeader>
+          
+          {leaderboardLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : leaderboard.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No performance data available
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="text-right">Orders Packed</TableHead>
+                  <TableHead className="text-right">Last Active</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {leaderboard.map((packer) => (
+                  <TableRow key={packer.name}>
+                    <TableCell className="font-medium">{packer.name}</TableCell>
+                    <TableCell className="text-right">{packer.count}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {packer.last_active}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
