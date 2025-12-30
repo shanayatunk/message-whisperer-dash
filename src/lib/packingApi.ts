@@ -85,19 +85,32 @@ async function packingRequest<T>(
 }
 
 export const packingApi = {
-  getOrders: async (businessId: string): Promise<PackingOrder[]> => {
-    const response = await packingRequest<{ orders: any[] }>(businessId, "/api/v1/packing/orders");
+  getOrders: async (businessId: string, status: string = 'pending'): Promise<PackingOrder[]> => {
+    const statusParam = status === 'all' ? '' : `?status=${status}`;
+    const response = await packingRequest<{ orders: any[] }>(
+      businessId, 
+      `/api/v1/packing/orders${statusParam}`
+    );
     
-    // Safety Mapping: Ensure ID is a string and handle item counts
-    return response.data.orders.map(order => ({
-      ...order,
-      // Map 'id' (backend) to 'order_id' (frontend) if needed, and force string
-      order_id: String(order.order_id || order.id || ""), 
-      order_number: String(order.order_number || ""),
-      customer_name: order.customer?.name || "Unknown",
-      // Calculate total quantity (sum of item quantities), not just array length
-      item_count: order.items?.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0) || 0
-    }));
+    // LOGGING: Show exactly what the backend sends in the browser console
+    console.log(`[getOrders] Raw response for ${status}:`, response);
+    
+    // MAPPING: Handle all possible ID variations
+    return (response.data.orders || []).map((order: any) => {
+      // Try to find a valid ID in this order of preference
+      const validId = order.order_id || order.id || order._id || "";
+      
+      return {
+        ...order,
+        // Force conversion to string to satisfy the UI
+        order_id: String(validId),
+        // Ensure other display fields exist
+        order_number: order.order_number || "???",
+        customer_name: order.customer?.name || "Unknown Customer",
+        // Calculate total quantity (sum of item quantities), not just array length
+        item_count: order.items?.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0) || 0
+      };
+    });
   },
 
   getConfig: async (businessId: string): Promise<PackingConfig> => {
