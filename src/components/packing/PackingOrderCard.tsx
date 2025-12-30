@@ -2,7 +2,13 @@ import { PackingOrder } from "@/lib/packingApi";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Pause, CheckCircle, Package } from "lucide-react";
+import { Play, Pause, CheckCircle, Package, AlertCircle } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface PackingOrderCardProps {
   order: PackingOrder;
@@ -19,60 +25,75 @@ export function PackingOrderCard({
   onHold,
   onFulfill,
 }: PackingOrderCardProps) {
-  // Safety check: disable actions if order_id is missing
-  const hasValidId = Boolean(order.order_id);
+  // Safety check: disable actions if order_id is missing or empty
+  const isValid = !!order.order_id && order.order_id !== "";
+
+  const renderActionButton = (
+    onClick: () => void,
+    icon: React.ReactNode,
+    label: string,
+    variant: "default" | "outline" = "outline"
+  ) => {
+    const button = (
+      <Button 
+        size="sm" 
+        variant={variant}
+        onClick={onClick} 
+        className="gap-1"
+        disabled={!isValid}
+      >
+        {icon}
+        {label}
+      </Button>
+    );
+
+    if (!isValid) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>{button}</span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Order ID missing</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    return button;
+  };
 
   const renderActions = () => {
     switch (order.status) {
       case "Pending":
-        return (
-          <Button 
-            size="sm" 
-            variant="outline" 
-            onClick={() => onStart(order.order_id)} 
-            className="gap-1"
-            disabled={!hasValidId}
-          >
-            <Play className="h-3 w-3" />
-            Start
-          </Button>
+        return renderActionButton(
+          () => onStart(order.order_id),
+          <Play className="h-3 w-3" />,
+          "Start"
         );
       case "In Progress":
         return (
           <div className="flex gap-2">
-            <Button 
-              size="sm" 
-              variant="outline" 
-              onClick={() => onHold(order.order_id)} 
-              className="gap-1"
-              disabled={!hasValidId}
-            >
-              <Pause className="h-3 w-3" />
-              Hold
-            </Button>
-            <Button 
-              size="sm" 
-              onClick={() => onFulfill(order.order_id)} 
-              className="gap-1"
-              disabled={!hasValidId}
-            >
-              <CheckCircle className="h-3 w-3" />
-              Fulfill
-            </Button>
+            {renderActionButton(
+              () => onHold(order.order_id),
+              <Pause className="h-3 w-3" />,
+              "Hold"
+            )}
+            {renderActionButton(
+              () => onFulfill(order.order_id),
+              <CheckCircle className="h-3 w-3" />,
+              "Fulfill",
+              "default"
+            )}
           </div>
         );
       case "On Hold":
-        return (
-          <Button 
-            size="sm" 
-            variant="outline" 
-            onClick={() => onStart(order.order_id)} 
-            className="gap-1"
-            disabled={!hasValidId}
-          >
-            <Play className="h-3 w-3" />
-            Resume
-          </Button>
+        return renderActionButton(
+          () => onStart(order.order_id),
+          <Play className="h-3 w-3" />,
+          "Resume"
         );
       case "Completed":
         return (
@@ -92,7 +113,7 @@ export function PackingOrderCard({
         <div className="flex items-start justify-between">
           <div>
             <p className="font-medium text-sm text-foreground">
-              #{order.order_id}
+              #{order.order_id || "N/A"}
             </p>
             <p className="text-xs text-muted-foreground">
               {order.customer_name}
@@ -108,6 +129,14 @@ export function PackingOrderCard({
         {order.status === "On Hold" && order.hold_reason && (
           <p className="text-xs text-destructive bg-destructive/10 px-2 py-1 rounded">
             Hold: {order.hold_reason}
+          </p>
+        )}
+
+        {/* Invalid ID warning */}
+        {!isValid && (
+          <p className="text-xs text-destructive flex items-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            Error: Invalid ID
           </p>
         )}
 
