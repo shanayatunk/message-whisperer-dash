@@ -797,15 +797,15 @@ export default function Broadcasts() {
         </Card>
       </div>
 
-      {/* Campaign History Section */}
-      <Card className="mt-8">
+      {/* Campaign Performance Section */}
+      <Card className="mt-12">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-lg flex items-center gap-2">
               <History className="h-4 w-4" />
-              Campaign History
+              Campaign Performance
             </CardTitle>
-            <CardDescription>View past broadcast performance</CardDescription>
+            <CardDescription>Track delivery and engagement metrics</CardDescription>
           </div>
           <Button
             variant="outline"
@@ -835,9 +835,9 @@ export default function Broadcasts() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Date</TableHead>
-                      <TableHead>Template</TableHead>
-                      <TableHead>Audience</TableHead>
-                      <TableHead>Delivery / Status</TableHead>
+                      <TableHead>Campaign</TableHead>
+                      <TableHead>Delivery</TableHead>
+                      <TableHead>Est. Revenue</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -851,6 +851,7 @@ export default function Broadcasts() {
                         const delivered = job.delivered_count || 0;
                         const read = job.read_count || 0;
                         const failed = job.failed_count || 0;
+                        const jobIdShort = job.id ? job.id.slice(0, 6) : "------";
                         
                         return (
                           <TableRow key={job.id}>
@@ -875,19 +876,19 @@ export default function Broadcasts() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Megaphone className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">
-                                  {job.message?.replace("Template: ", "") || job.template_name || "Unknown Template"}
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-2">
+                                  <Megaphone className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-medium">
+                                    {job.message?.replace("Template: ", "") || job.template_name || "Unknown Template"}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-muted-foreground font-mono">
+                                  ID: {jobIdShort}
                                 </span>
                               </div>
                             </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="capitalize">
-                                {job.target_type || job.audience || "All Customers"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="min-w-[200px]">
+                            <TableCell className="min-w-[180px]">
                               <div className="space-y-1.5">
                                 {/* Status Badge */}
                                 <div className="flex items-center gap-2">
@@ -932,6 +933,11 @@ export default function Broadcasts() {
                                 )}
                               </div>
                             </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="text-muted-foreground">
+                                Coming Soon
+                              </Badge>
+                            </TableCell>
                           </TableRow>
                         );
                       });
@@ -941,31 +947,29 @@ export default function Broadcasts() {
               </div>
               
               {/* Pagination Controls */}
-              {history.length > itemsPerPage && (
-                <div className="flex items-center justify-between pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Previous
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Page {currentPage} of {Math.ceil(history.length / itemsPerPage)}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(history.length / itemsPerPage), prev + 1))}
-                    disabled={currentPage >= Math.ceil(history.length / itemsPerPage)}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </div>
-              )}
+              <div className="flex items-center justify-between pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {currentPage} of {Math.max(1, Math.ceil(history.length / itemsPerPage))}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(Math.ceil(history.length / itemsPerPage), prev + 1))}
+                  disabled={currentPage >= Math.ceil(history.length / itemsPerPage)}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
