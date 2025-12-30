@@ -132,12 +132,15 @@ export function PackingOrderCard({
           </p>
         )}
 
-        {/* Invalid ID warning */}
+        {/* Invalid ID warning with debug data */}
         {!isValid && (
-          <p className="text-xs text-destructive flex items-center gap-1">
-            <AlertCircle className="h-3 w-3" />
-            Error: Invalid ID
-          </p>
+          <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-xs text-destructive overflow-auto">
+            <p className="font-bold flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              Invalid Order Data:
+            </p>
+            <pre className="mt-1 whitespace-pre-wrap break-all">{JSON.stringify(order, null, 2)}</pre>
+          </div>
         )}
 
         {/* Actions */}
