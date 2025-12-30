@@ -86,7 +86,7 @@ async function packingRequest<T>(
 
 export const packingApi = {
   getOrders: async (businessId: string): Promise<PackingOrder[]> => {
-    const response = await packingRequest<{ orders: any[] }>(businessId, "/packing/orders");
+    const response = await packingRequest<{ orders: any[] }>(businessId, "/api/v1/packing/orders");
     
     // Safety Mapping: Ensure ID is a string and handle item counts
     return response.data.orders.map(order => ({
@@ -101,7 +101,7 @@ export const packingApi = {
   },
 
   getConfig: async (businessId: string): Promise<PackingConfig> => {
-    const response = await packingRequest<PackingConfig>(businessId, "/packing/config");
+    const response = await packingRequest<PackingConfig>(businessId, "/api/v1/packing/config");
     // Ensure we return valid arrays even if backend sends null
     return {
         packers: response.data.packers || [],
@@ -110,12 +110,20 @@ export const packingApi = {
   },
 
   startOrder: async (businessId: string, orderId: string): Promise<void> => {
+    if (!orderId) {
+      console.error("Attempted to call startOrder with empty orderId");
+      throw new Error("Invalid Order ID");
+    }
     console.log("Starting order:", orderId);
-    await packingRequest<void>(businessId, `/packing/orders/${orderId}/start`, { method: "POST" });
+    await packingRequest<void>(businessId, `/api/v1/packing/orders/${orderId}/start`, { method: "POST" });
   },
 
   holdOrder: async (businessId: string, orderId: string, reason: string, notes: string): Promise<void> => {
-    await packingRequest<void>(businessId, `/packing/orders/${orderId}/hold`, {
+    if (!orderId) {
+      console.error("Attempted to call holdOrder with empty orderId");
+      throw new Error("Invalid Order ID");
+    }
+    await packingRequest<void>(businessId, `/api/v1/packing/orders/${orderId}/hold`, {
       method: "POST",
       body: JSON.stringify({ reason, notes }),
     });
@@ -128,7 +136,11 @@ export const packingApi = {
     carrier: string,
     trackingNumber: string
   ): Promise<void> => {
-    await packingRequest<void>(businessId, `/packing/orders/${orderId}/fulfill`, {
+    if (!orderId) {
+      console.error("Attempted to call fulfillOrder with empty orderId");
+      throw new Error("Invalid Order ID");
+    }
+    await packingRequest<void>(businessId, `/api/v1/packing/orders/${orderId}/fulfill`, {
       method: "POST",
       body: JSON.stringify({ 
         packer_name: packer,
@@ -139,11 +151,15 @@ export const packingApi = {
   },
 
   requeueOrder: async (businessId: string, orderId: string): Promise<void> => {
-    await packingRequest<void>(businessId, `/packing/orders/${orderId}/requeue`, { method: "POST" });
+    if (!orderId) {
+      console.error("Attempted to call requeueOrder with empty orderId");
+      throw new Error("Invalid Order ID");
+    }
+    await packingRequest<void>(businessId, `/api/v1/packing/orders/${orderId}/requeue`, { method: "POST" });
   },
 
   getMetrics: async (businessId: string): Promise<PackingMetrics> => {
-    const response = await packingRequest<PackingMetrics>(businessId, "/packing/metrics");
+    const response = await packingRequest<PackingMetrics>(businessId, "/api/v1/packing/metrics");
     return {
       pending: response.data.pending || 0,
       in_progress: response.data.in_progress || 0,
@@ -155,7 +171,7 @@ export const packingApi = {
   getPerformance: async (businessId: string, days: number = 7): Promise<PackerPerformance[]> => {
     const response = await packingRequest<{ packers: PackerPerformance[] }>(
       businessId,
-      `/packing/packer-performance?days=${days}`
+      `/api/v1/packing/packer-performance?days=${days}`
     );
     return response.data.packers || [];
   },
