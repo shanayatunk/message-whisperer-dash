@@ -1,10 +1,10 @@
 import { API_BASE, ApiError } from "./api";
 
 export interface PackingOrder {
-  order_id: string;
+  order_id: string; // We force this to be a string
   order_number: string;
   customer: { name: string; phone: string };
-  customer_name?: string; // Computed field for frontend compatibility
+  customer_name?: string;
   item_count?: number;
   items?: any[];
   status: "Pending" | "In Progress" | "On Hold" | "Completed";
@@ -67,18 +67,27 @@ async function packingRequest<T>(
 
 export const packingApi = {
   getOrders: async (businessId: string): Promise<PackingOrder[]> => {
-    const response = await packingRequest<{ orders: PackingOrder[] }>(businessId, "/packing/orders");
+    const response = await packingRequest<{ orders: any[] }>(businessId, "/packing/orders");
     
+    // Safety Mapping: Ensure ID is a string and handle item counts
     return response.data.orders.map(order => ({
       ...order,
+      // Map 'id' (backend) to 'order_id' (frontend) if needed, and force string
+      order_id: String(order.order_id || order.id || ""), 
+      order_number: String(order.order_number || ""),
       customer_name: order.customer?.name || "Unknown",
-      item_count: order.items?.length || 0
+      // Calculate total quantity (sum of item quantities), not just array length
+      item_count: order.items?.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0) || 0
     }));
   },
 
   getConfig: async (businessId: string): Promise<PackingConfig> => {
     const response = await packingRequest<PackingConfig>(businessId, "/packing/config");
-    return response.data;
+    // Ensure we return valid arrays even if backend sends null
+    return {
+        packers: response.data.packers || [],
+        carriers: response.data.carriers || []
+    };
   },
 
   startOrder: async (businessId: string, orderId: string): Promise<void> => {
