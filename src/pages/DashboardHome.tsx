@@ -123,7 +123,7 @@ export default function DashboardHome() {
                   >
                     <span className="font-medium">{packer.packer_name}</span>
                     <span className="text-muted-foreground">
-                      {packer.orders_packed} orders ({packer.avg_time_minutes.toFixed(1)} min avg)
+                      {packer.orders_packed ?? 0} orders ({(packer.avg_time_minutes ?? 0).toFixed(1)} min avg)
                     </span>
                   </div>
                 ))}
