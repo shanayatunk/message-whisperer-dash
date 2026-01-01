@@ -22,20 +22,28 @@ export default function DashboardHome() {
   // Fetch conversation stats
   const { data: conversationStats, isLoading: statsLoading } = useQuery({
     queryKey: ["conversation-stats", businessId],
-    queryFn: () =>
-      apiRequest<ConversationStats>(
+    queryFn: async () => {
+      // The API returns { success: true, data: { active_count: 5, ... } }
+      // We need to extract the 'data' property.
+      const response = await apiRequest<{ data: ConversationStats }>(
         `/api/v1/conversations/stats?business_id=${encodeURIComponent(businessId)}`
-      ),
+      );
+      return response.data;
+    },
   });
 
   // Fetch packer performance from the correct admin endpoint
   // CRITICAL: Do NOT use /packing or /api/v1/packing - that's internal-only
   const { data: packerPerformance, isLoading: packersLoading } = useQuery({
     queryKey: ["packer-performance", businessId],
-    queryFn: () =>
-      apiRequest<PackerPerformance[]>(
+    queryFn: async () => {
+      // The API returns { success: true, data: { metrics: [...] } }
+      // We need to extract data.metrics
+      const response = await apiRequest<{ data: { metrics: PackerPerformance[] } }>(
         `/api/v1/admin/packer-performance?business_id=${encodeURIComponent(businessId)}`
-      ),
+      );
+      return response.data?.metrics || [];
+    },
   });
 
   return (
