@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/accordion";
 import { Loader2, RotateCcw, Save, Search, Brain, Zap, BookOpen } from "lucide-react";
 import { toast } from "sonner";
+import StringPreviewCard from "@/components/strings/StringPreviewCard";
 
 interface StringItem {
   key: string;
@@ -56,6 +57,8 @@ export default function AIStringsManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeStringKey, setActiveStringKey] = useState<string | null>(null);
+  const [selectedBusiness, setSelectedBusiness] = useState<"feelori" | "golden">("feelori");
 
   useEffect(() => {
     fetchStrings();
@@ -111,6 +114,12 @@ export default function AIStringsManager() {
     return strings.find((s) => s.key === key)?.value || "";
   };
 
+  // Get active string object
+  const activeString = useMemo(() => {
+    if (!activeStringKey) return null;
+    return strings.find((s) => s.key === activeStringKey) || null;
+  }, [activeStringKey, strings]);
+
   // Categorize strings
   const personaStrings = useMemo(
     () => strings.filter((s) => PERSONA_KEYS.includes(s.key)),
@@ -164,6 +173,28 @@ export default function AIStringsManager() {
       </div>
     );
   }
+
+  // Reusable editable card with focus tracking
+  const EditableStringCard = ({ item }: { item: StringItem }) => (
+    <Card key={item.key}>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium">
+          {formatKeyToLabel(item.key)}
+        </CardTitle>
+        <Badge variant="outline" className="w-fit font-mono text-xs text-muted-foreground">
+          {item.key}
+        </Badge>
+      </CardHeader>
+      <CardContent>
+        <Textarea
+          value={item.value}
+          onChange={(e) => handleValueChange(item.key, e.target.value)}
+          onFocus={() => setActiveStringKey(item.key)}
+          className="min-h-[100px] text-sm resize-y"
+        />
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -257,7 +288,7 @@ export default function AIStringsManager() {
           </div>
         </TabsContent>
 
-        {/* Tab 2: Quick Responses */}
+        {/* Tab 2: Quick Responses - Split View */}
         <TabsContent value="quick" className="space-y-4">
           {quickResponseStrings.length === 0 ? (
             <Card>
@@ -266,91 +297,104 @@ export default function AIStringsManager() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {quickResponseStrings.map((item) => (
-                <Card key={item.key}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      {formatKeyToLabel(item.key)}
-                    </CardTitle>
-                    <Badge variant="outline" className="w-fit font-mono text-xs text-muted-foreground">
-                      {item.key}
-                    </Badge>
-                  </CardHeader>
-                  <CardContent>
-                    <Textarea
-                      value={item.value}
-                      onChange={(e) => handleValueChange(item.key, e.target.value)}
-                      className="min-h-[100px] text-sm resize-y"
-                    />
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+              {/* Left Panel - Editors (60%) */}
+              <div className="lg:col-span-3 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {quickResponseStrings.map((item) => (
+                    <EditableStringCard key={item.key} item={item} />
+                  ))}
+                </div>
+              </div>
+              
+              {/* Right Panel - Preview (40%) */}
+              <div className="lg:col-span-2">
+                <StringPreviewCard
+                  activeString={activeString}
+                  selectedBusiness={selectedBusiness}
+                  onBusinessChange={setSelectedBusiness}
+                />
+              </div>
             </div>
           )}
         </TabsContent>
 
-        {/* Tab 3: Informational Templates */}
+        {/* Tab 3: Informational Templates - Split View */}
         <TabsContent value="informational" className="space-y-4">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search templates..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            {/* Left Panel - Editors (60%) */}
+            <div className="lg:col-span-3 space-y-4">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search templates..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
 
-          {filteredInformationalStrings.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                {searchQuery
-                  ? "No templates match your search."
-                  : "No informational templates found."}
-              </CardContent>
-            </Card>
-          ) : (
-            <Accordion type="multiple" className="space-y-2">
-              {Object.entries(groupedInformationalStrings).map(([prefix, items]) => (
-                <AccordionItem key={prefix} value={prefix} className="border rounded-lg px-4">
-                  <AccordionTrigger className="hover:no-underline">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{formatKeyToLabel(prefix)}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {items.length}
-                      </Badge>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-4 pt-2">
-                      {items.map((item) => (
-                        <div key={item.key} className="space-y-2">
-                          <div className="flex flex-col gap-1">
-                            <span className="text-sm font-medium">
-                              {formatKeyToLabel(item.key)}
-                            </span>
-                            <Badge
-                              variant="outline"
-                              className="w-fit font-mono text-xs text-muted-foreground"
-                            >
-                              {item.key}
-                            </Badge>
-                          </div>
-                          <Textarea
-                            value={item.value}
-                            onChange={(e) => handleValueChange(item.key, e.target.value)}
-                            className="min-h-[100px] text-sm resize-y"
-                          />
+              {filteredInformationalStrings.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center text-muted-foreground">
+                    {searchQuery
+                      ? "No templates match your search."
+                      : "No informational templates found."}
+                  </CardContent>
+                </Card>
+              ) : (
+                <Accordion type="multiple" className="space-y-2">
+                  {Object.entries(groupedInformationalStrings).map(([prefix, items]) => (
+                    <AccordionItem key={prefix} value={prefix} className="border rounded-lg px-4">
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{formatKeyToLabel(prefix)}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {items.length}
+                          </Badge>
                         </div>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          )}
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-4 pt-2">
+                          {items.map((item) => (
+                            <div key={item.key} className="space-y-2">
+                              <div className="flex flex-col gap-1">
+                                <span className="text-sm font-medium">
+                                  {formatKeyToLabel(item.key)}
+                                </span>
+                                <Badge
+                                  variant="outline"
+                                  className="w-fit font-mono text-xs text-muted-foreground"
+                                >
+                                  {item.key}
+                                </Badge>
+                              </div>
+                              <Textarea
+                                value={item.value}
+                                onChange={(e) => handleValueChange(item.key, e.target.value)}
+                                onFocus={() => setActiveStringKey(item.key)}
+                                className="min-h-[100px] text-sm resize-y"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              )}
+            </div>
+
+            {/* Right Panel - Preview (40%) */}
+            <div className="lg:col-span-2">
+              <StringPreviewCard
+                activeString={activeString}
+                selectedBusiness={selectedBusiness}
+                onBusinessChange={setSelectedBusiness}
+              />
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
