@@ -32,9 +32,9 @@ export default function AIStringsManager() {
   const fetchStrings = async () => {
     setLoading(true);
     try {
-      const response = await apiRequest<StringsResponse>("/api/v1/admin/strings");
-      setStrings(response.strings || []);
-      setOriginalStrings(response.strings || []);
+      const response = await apiRequest<{ data: { strings: StringItem[] } }>("/api/v1/admin/strings");
+      setStrings(response.data?.strings || []);
+      setOriginalStrings(response.data?.strings || []);
     } catch (error) {
       toast.error("Failed to load strings");
       console.error(error);
