@@ -12,9 +12,9 @@ import DashboardHome from "@/pages/DashboardHome";
 import Conversations from "@/pages/Conversations";
 import Broadcasts from "@/pages/Broadcasts";
 import PackingPage from "@/pages/PackingPage";
+import AIStringsManager from "@/pages/AIStringsManager";
 import NotFound from "@/pages/NotFound";
 import Debug from "@/pages/Debug";
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -80,6 +80,16 @@ const App = () => (
                   <ProtectedRoute>
                     <DashboardLayout>
                       <PackingPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ai-strings"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout>
+                      <AIStringsManager />
                     </DashboardLayout>
                   </ProtectedRoute>
                 }
