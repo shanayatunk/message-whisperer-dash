@@ -19,6 +19,9 @@ const ALLOWED_PLACEHOLDERS = [
   "order_number",
   "tracking_link",
   "estimated_delivery",
+  "google_review_url",
+  "shipping_policy_url",
+  "city_info",
 ];
 
 const MOCK_CONTEXT: Record<"feelori" | "golden", Record<string, string>> = {
@@ -31,6 +34,9 @@ const MOCK_CONTEXT: Record<"feelori" | "golden", Record<string, string>> = {
     order_number: "#ORD-1234",
     tracking_link: "bit.ly/track-fo1234",
     estimated_delivery: "Monday, 12th",
+    google_review_url: "g.page/feelori/review",
+    shipping_policy_url: "feelori.com/shipping",
+    city_info: "New York",
   },
   golden: {
     business_name: "Golden Collections",
@@ -41,6 +47,9 @@ const MOCK_CONTEXT: Record<"feelori" | "golden", Record<string, string>> = {
     order_number: "#ORD-1234",
     tracking_link: "bit.ly/track-gc1234",
     estimated_delivery: "Monday, 12th",
+    google_review_url: "g.page/golden/review",
+    shipping_policy_url: "goldencollections.com/shipping",
+    city_info: "Los Angeles",
   },
 };
 
