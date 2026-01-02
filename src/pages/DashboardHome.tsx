@@ -1,9 +1,9 @@
 import { useBusiness } from "@/contexts/BusinessContext";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, AbandonedCartsStats } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MessageSquare, UserCheck, Package } from "lucide-react";
+import { MessageSquare, UserCheck, Package, ShoppingCart, RefreshCw, IndianRupee } from "lucide-react";
 
 interface PackerPerformance {
   packer_name: string;
@@ -14,6 +14,7 @@ interface PackerPerformance {
 interface ConversationStats {
   active_count: number;
   human_takeover_count: number;
+  abandoned_carts?: AbandonedCartsStats;
 }
 
 export default function DashboardHome() {
@@ -96,6 +97,72 @@ export default function DashboardHome() {
             )}
             <p className="text-xs text-muted-foreground mt-1">
               Escalated to agents
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Abandoned Carts (Today) Card */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Abandoned Carts (Today)
+            </CardTitle>
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {statsLoading ? (
+              <Skeleton className="h-9 w-16" />
+            ) : (
+              <div className="text-3xl font-bold">
+                {conversationStats?.abandoned_carts?.today_count ?? 0}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              Carts left behind
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Recovered Carts Card */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Recovered Carts
+            </CardTitle>
+            <RefreshCw className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            {statsLoading ? (
+              <Skeleton className="h-9 w-16" />
+            ) : (
+              <div className="text-3xl font-bold text-green-600">
+                {conversationStats?.abandoned_carts?.recovered_count ?? 0}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              Successfully recovered
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Revenue Saved Card */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Revenue Saved
+            </CardTitle>
+            <IndianRupee className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            {statsLoading ? (
+              <Skeleton className="h-9 w-16" />
+            ) : (
+              <div className="text-3xl font-bold text-green-600">
+                ₹ {(conversationStats?.abandoned_carts?.revenue_recovered ?? 0).toLocaleString("en-IN")}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              From recovered carts
             </p>
           </CardContent>
         </Card>
