@@ -12,13 +12,12 @@ export function BusinessSelector() {
 
   return (
     <Select value={businessId} onValueChange={setBusinessId}>
-      <SelectTrigger className="h-8 text-xs border-border">
+      <SelectTrigger className="h-8 text-xs border-border w-[180px]">
         <SelectValue placeholder="Select business" />
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="feelori">Feelori</SelectItem>
-        <SelectItem value="business_b">Business B</SelectItem>
-        <SelectItem value="business_c">Business C</SelectItem>
+        <SelectItem value="goldencollections">Golden Collections</SelectItem>
       </SelectContent>
     </Select>
   );
