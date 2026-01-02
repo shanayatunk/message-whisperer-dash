@@ -1,5 +1,5 @@
 import { useBusiness } from "@/contexts/BusinessContext";
-import { apiRequest, AbandonedCartsStats } from "@/lib/api";
+import { apiRequest, AbandonedCartsStats, APIResponse } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,36 +12,33 @@ interface PackerPerformance {
 }
 
 interface ConversationStats {
-  active_count: number;
-  human_takeover_count: number;
+  open: number;
+  resolved: number;
+  triaged?: number;
+  total?: number;
   abandoned_carts?: AbandonedCartsStats;
 }
 
 export default function DashboardHome() {
   const { businessId } = useBusiness();
 
-  // Fetch conversation stats
+  // Fetch conversation stats - backend extracts tenant from auth token
   const { data: conversationStats, isLoading: statsLoading } = useQuery({
     queryKey: ["conversation-stats", businessId],
     queryFn: async () => {
-      // The API returns { success: true, data: { active_count: 5, ... } }
-      // We need to extract the 'data' property.
-      const response = await apiRequest<{ data: ConversationStats }>(
-        `/api/v1/conversations/stats?business_id=${encodeURIComponent(businessId)}`
+      const response = await apiRequest<APIResponse<ConversationStats>>(
+        `/api/v1/conversations/stats`
       );
       return response.data;
     },
   });
 
-  // Fetch packer performance from the correct admin endpoint
-  // CRITICAL: Do NOT use /packing or /api/v1/packing - that's internal-only
+  // Fetch packer performance - backend extracts tenant from auth token
   const { data: packerPerformance, isLoading: packersLoading } = useQuery({
     queryKey: ["packer-performance", businessId],
     queryFn: async () => {
-      // The API returns { success: true, data: { metrics: [...] } }
-      // We need to extract data.metrics
-      const response = await apiRequest<{ data: { metrics: PackerPerformance[] } }>(
-        `/api/v1/admin/packer-performance?business_id=${encodeURIComponent(businessId)}`
+      const response = await apiRequest<APIResponse<{ metrics: PackerPerformance[] }>>(
+        `/api/v1/admin/packer-performance`
       );
       return response.data?.metrics || [];
     },
@@ -70,7 +67,7 @@ export default function DashboardHome() {
               <Skeleton className="h-9 w-16" />
             ) : (
               <div className="text-3xl font-bold">
-                {conversationStats?.active_count ?? 0}
+                {conversationStats?.open ?? 0}
               </div>
             )}
             <p className="text-xs text-muted-foreground mt-1">
@@ -92,7 +89,7 @@ export default function DashboardHome() {
               <Skeleton className="h-9 w-16" />
             ) : (
               <div className="text-3xl font-bold">
-                {conversationStats?.human_takeover_count ?? 0}
+                {conversationStats?.triaged ?? 0}
               </div>
             )}
             <p className="text-xs text-muted-foreground mt-1">
