@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Select,
   SelectContent,
@@ -6,14 +7,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function BusinessSelector() {
-  const { businessId, setBusinessId } = useBusiness();
+  const { businessId } = useBusiness();
+  const { switchBusiness } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSwitch = async (newVal: string) => {
+    // Guardrail: prevent unnecessary reloads
+    if (newVal === businessId) return;
+
+    setIsLoading(true);
+    try {
+      await switchBusiness(newVal);
+      // Note: page will reload after switchBusiness, so no need to setIsLoading(false)
+    } catch {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <Select value={businessId} onValueChange={setBusinessId}>
+    <Select value={businessId} onValueChange={handleSwitch} disabled={isLoading}>
       <SelectTrigger className="h-8 text-xs border-border w-[180px]">
-        <SelectValue placeholder="Select business" />
+        <SelectValue placeholder={isLoading ? "Switching..." : "Select business"} />
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="feelori">Feelori</SelectItem>
