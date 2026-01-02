@@ -33,6 +33,13 @@ if (API_BASE.startsWith("http://")) {
   console.error("[api] API_BASE is http:// (will cause Mixed Content):", API_BASE);
 }
 
+// Stats data types
+export interface AbandonedCartsStats {
+  today_count: number;
+  recovered_count: number;
+  revenue_recovered: number;
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
