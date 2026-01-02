@@ -1,8 +1,10 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { switchTenant } from "@/lib/api";
 
 interface User {
   id: string;
   username: string;
+  tenant_id?: string;
 }
 
 interface AuthContextType {
@@ -12,11 +14,12 @@ interface AuthContextType {
   user: User | null;
   login: (token: string, username?: string) => void;
   logout: () => void;
+  switchBusiness: (tenantId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-function decodeJwtPayload(token: string): { sub?: string } | null {
+function decodeJwtPayload(token: string): { sub?: string; tenant_id?: string } | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
@@ -41,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser({
         id: payload?.sub || storedUsername || "admin",
         username: storedUsername || payload?.sub || "admin",
+        tenant_id: payload?.tenant_id,
       });
     }
     setIsLoading(false);
@@ -56,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser({
       id: payload?.sub || username || "admin",
       username: username || payload?.sub || "admin",
+      tenant_id: payload?.tenant_id,
     });
   };
 
@@ -67,6 +72,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = "/login";
   };
 
+  const switchBusiness = async (tenantId: string): Promise<void> => {
+    const response = await switchTenant(tenantId);
+    // CRITICAL: Immediately overwrite the token in sessionStorage
+    sessionStorage.setItem("auth_token", response.access_token);
+    // Force a fresh state and clear all caches
+    window.location.reload();
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -76,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         login,
         logout,
+        switchBusiness,
       }}
     >
       {children}
