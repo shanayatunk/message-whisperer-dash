@@ -40,6 +40,25 @@ export interface AbandonedCartsStats {
   revenue_recovered: number;
 }
 
+// Conversation types aligned with SaaS backend
+export interface ConversationSummary {
+  id: string;
+  phone: string;
+  preview: string;
+  status: string;
+  last_at: string | null;
+}
+
+export interface ConversationsResponse {
+  data: ConversationSummary[];
+  next_cursor: string | null;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -118,8 +137,7 @@ export async function apiRequest<T>(
 export async function login(
   username: string,
   password: string
-): Promise<{ access_token: string; token_type: string }> {
-
+): Promise<TokenResponse> {
   const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -132,10 +150,30 @@ export async function login(
   }
 
   const data = await response.json();
-
-  // ✅ CRITICAL FIX
   sessionStorage.setItem("auth_token", data.access_token);
 
   return data;
+}
+
+export async function switchTenant(targetId: string): Promise<TokenResponse> {
+  return apiRequest<TokenResponse>(`/api/v1/auth/switch-tenant/${targetId}`, {
+    method: "POST",
+  });
+}
+
+export async function getConversations(
+  cursor?: string | null,
+  limit: number = 20,
+  status?: string
+): Promise<ConversationsResponse> {
+  const params = new URLSearchParams();
+  if (cursor) params.append("cursor", cursor);
+  params.append("limit", String(limit));
+  if (status) params.append("status", status);
+
+  const queryString = params.toString();
+  const endpoint = `/api/v1/conversations${queryString ? `?${queryString}` : ""}`;
+
+  return apiRequest<ConversationsResponse>(endpoint);
 }
 
