@@ -16,6 +16,9 @@ interface TicketQueueProps {
   onFilterChange: (filter: string) => void;
   onSelectTicket: (ticket: Ticket) => void;
   onRefresh: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 export function TicketQueue({
@@ -28,6 +31,9 @@ export function TicketQueue({
   onFilterChange,
   onSelectTicket,
   onRefresh,
+  hasMore,
+  isLoadingMore,
+  onLoadMore,
 }: TicketQueueProps) {
   return (
     <div className="flex flex-col h-full border-r border-border">
@@ -97,6 +103,21 @@ export function TicketQueue({
                 onClick={() => onSelectTicket(ticket)}
               />
             ))}
+            
+            {/* Load More Button */}
+            {hasMore && onLoadMore && (
+              <div className="p-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={onLoadMore}
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore ? "Loading..." : "Load More"}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </ScrollArea>

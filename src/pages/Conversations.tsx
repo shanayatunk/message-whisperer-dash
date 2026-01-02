@@ -1,20 +1,11 @@
-import { useState } from "react";
-import { useBusiness } from "@/contexts/BusinessContext";
-import { apiRequest, ApiError } from "@/lib/api";
+import { useState, useEffect } from "react";
+import { apiRequest, ApiError, getConversations, ConversationSummary } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { TicketQueue } from "@/components/cockpit/TicketQueue";
 import { ActiveChat } from "@/components/cockpit/ActiveChat";
 import { Ticket } from "@/components/cockpit/TicketCard";
 import { Message } from "@/components/cockpit/ChatMessages";
-
-interface TicketsResponse {
-  success: boolean;
-  message: string;
-  data: {
-    tickets: Ticket[];
-  };
-}
 
 interface MessagesResponse {
   success: boolean;
@@ -24,7 +15,6 @@ interface MessagesResponse {
 }
 
 export default function Conversations() {
-  const { businessId } = useBusiness();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -32,25 +22,66 @@ export default function Conversations() {
   const [filter, setFilter] = useState("all");
   const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
 
-  // Fetch tickets
-  const {
-    data: ticketsData,
-    isLoading: isLoadingTickets,
-    isError: isTicketsError,
-    refetch: refetchTickets,
-    isFetching: isFetchingTickets,
-  } = useQuery({
-    queryKey: ["tickets", businessId, filter],
-    queryFn: async () => {
-      const params = new URLSearchParams({ business_id: businessId });
-      if (filter !== "all") {
-        params.append("status", filter);
-      }
-      const response = await apiRequest<TicketsResponse>(`/api/v1/conversations?${params}`);
-      return response.data.tickets;
-    },
-    refetchInterval: 5000,
-  });
+  // Cursor pagination state
+  const [allConversations, setAllConversations] = useState<ConversationSummary[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [isLoadingInitial, setIsLoadingInitial] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isError, setIsError] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
+
+  // Convert ConversationSummary to Ticket format for compatibility
+  const ticketsData: Ticket[] = allConversations.map((conv) => ({
+    _id: conv.id,
+    phone: conv.phone,
+    preview: conv.preview,
+    status: conv.status,
+    last_at: conv.last_at,
+  }));
+
+  // Initial fetch and filter change
+  const fetchInitial = async () => {
+    setIsLoadingInitial(true);
+    setIsError(false);
+    setIsFetching(true);
+    try {
+      const statusParam = filter !== "all" ? filter : undefined;
+      const response = await getConversations(null, 20, statusParam);
+      setAllConversations(response.data);
+      setNextCursor(response.next_cursor);
+    } catch {
+      setIsError(true);
+    } finally {
+      setIsLoadingInitial(false);
+      setIsFetching(false);
+    }
+  };
+
+  // Load more with cursor
+  const handleLoadMore = async () => {
+    if (!nextCursor || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const statusParam = filter !== "all" ? filter : undefined;
+      const response = await getConversations(nextCursor, 20, statusParam);
+      setAllConversations((prev) => [...prev, ...response.data]);
+      setNextCursor(response.next_cursor);
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to load more" });
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Fetch on mount and filter change
+  useEffect(() => {
+    fetchInitial();
+  }, [filter]);
+
+  // Refresh function
+  const handleRefresh = () => {
+    fetchInitial();
+  };
 
   // Fetch messages for selected ticket
   const {
@@ -164,12 +195,18 @@ export default function Conversations() {
   };
 
   const handleTicketUpdate = async () => {
-    const result = await refetchTickets();
-    // Update selectedTicket with fresh data from refetch
-    if (selectedTicket && result.data) {
-      const updatedTicket = result.data.find((t) => t._id === selectedTicket._id);
+    await fetchInitial();
+    // Update selectedTicket with fresh data
+    if (selectedTicket) {
+      const updatedTicket = allConversations.find((c) => c.id === selectedTicket._id);
       if (updatedTicket) {
-        setSelectedTicket(updatedTicket);
+        setSelectedTicket({
+          _id: updatedTicket.id,
+          phone: updatedTicket.phone,
+          preview: updatedTicket.preview,
+          status: updatedTicket.status,
+          last_at: updatedTicket.last_at,
+        });
       }
     }
   };
@@ -180,14 +217,17 @@ export default function Conversations() {
       <div className="w-[30%] min-w-[280px] max-w-[400px]">
         <TicketQueue
           tickets={ticketsData}
-          isLoading={isLoadingTickets}
-          isError={isTicketsError}
-          isFetching={isFetchingTickets}
+          isLoading={isLoadingInitial}
+          isError={isError}
+          isFetching={isFetching}
           selectedTicketId={selectedTicket?._id ?? null}
           filter={filter}
           onFilterChange={setFilter}
           onSelectTicket={handleSelectTicket}
-          onRefresh={() => refetchTickets()}
+          onRefresh={handleRefresh}
+          hasMore={nextCursor !== null}
+          isLoadingMore={isLoadingMore}
+          onLoadMore={handleLoadMore}
         />
       </div>
 

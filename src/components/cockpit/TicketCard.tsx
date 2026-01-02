@@ -5,14 +5,17 @@ import { cn } from "@/lib/utils";
 
 export interface Ticket {
   _id: string;
-  customer_phone: string;
-  order_number: string;
-  issue_type: string;
-  image_media_id: string | null;
+  phone?: string;
+  customer_phone?: string;
+  preview?: string;
+  order_number?: string;
+  issue_type?: string;
+  image_media_id?: string | null;
   status: string;
   assigned_to?: string | null;
   assigned_to_username?: string | null;
-  created_at: string;
+  last_at?: string | null;
+  created_at?: string;
 }
 
 interface TicketCardProps {
@@ -25,9 +28,11 @@ const normalizeUTC = (dateStr: string) =>
   dateStr.endsWith("Z") ? dateStr : `${dateStr}Z`;
 
 export function TicketCard({ ticket, isSelected, onClick }: TicketCardProps) {
-  const createdAt = new Date(normalizeUTC(ticket.created_at));
+  const dateStr = ticket.created_at || ticket.last_at;
+  const createdAt = dateStr ? new Date(normalizeUTC(dateStr)) : new Date();
   const timeAgo = formatDistanceToNow(createdAt, { addSuffix: true });
   const isHumanNeeded = ticket.status === "human_needed";
+  const displayPhone = ticket.phone || ticket.customer_phone || "Unknown";
 
   return (
     <div
@@ -40,7 +45,7 @@ export function TicketCard({ ticket, isSelected, onClick }: TicketCardProps) {
     >
       <div className="flex items-start justify-between gap-2 mb-1">
         <span className="font-mono text-sm font-medium text-foreground">
-          {ticket.customer_phone}
+          {displayPhone}
         </span>
         {isHumanNeeded ? (
           <Badge variant="destructive" className="text-xs gap-1 shrink-0">
@@ -57,9 +62,16 @@ export function TicketCard({ ticket, isSelected, onClick }: TicketCardProps) {
       
       <div className="flex items-center justify-between gap-2 mt-1">
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-xs">
-            {ticket.issue_type}
-          </Badge>
+          {ticket.issue_type && (
+            <Badge variant="outline" className="text-xs">
+              {ticket.issue_type}
+            </Badge>
+          )}
+          {ticket.preview && (
+            <span className="text-xs text-muted-foreground truncate max-w-[120px]">
+              {ticket.preview}
+            </span>
+          )}
           <span className="text-xs text-muted-foreground">{timeAgo}</span>
         </div>
         
