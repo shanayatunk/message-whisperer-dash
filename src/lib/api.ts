@@ -33,6 +33,14 @@ if (API_BASE.startsWith("http://")) {
   console.error("[api] API_BASE is http:// (will cause Mixed Content):", API_BASE);
 }
 
+// Generic API response wrapper
+export interface APIResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+  version?: string;
+}
+
 // Stats data types
 export interface AbandonedCartsStats {
   today_count: number;
@@ -174,6 +182,8 @@ export async function getConversations(
   const queryString = params.toString();
   const endpoint = `/api/v1/conversations${queryString ? `?${queryString}` : ""}`;
 
-  return apiRequest<ConversationsResponse>(endpoint);
+  // Fetch the wrapper and return only the inner data object
+  const response = await apiRequest<APIResponse<ConversationsResponse>>(endpoint);
+  return response.data;
 }
 
