@@ -7,9 +7,10 @@ import { ActiveChat } from "@/components/cockpit/ActiveChat";
 import { Ticket } from "@/components/cockpit/TicketCard";
 import { Message } from "@/components/cockpit/ChatMessages";
 
-interface MessagesResponse {
+interface ConversationThreadResponse {
   success: boolean;
   data: {
+    conversation: ConversationSummary;
     messages: Message[];
   };
 }
@@ -92,8 +93,8 @@ export default function Conversations() {
     queryKey: ["messages", selectedTicket?._id],
     queryFn: async () => {
       if (!selectedTicket) return [];
-      const response = await apiRequest<MessagesResponse>(
-        `/api/v1/conversations/${selectedTicket._id}/messages`
+      const response = await apiRequest<ConversationThreadResponse>(
+        `/api/v1/conversations/${selectedTicket._id}`
       );
       return response.data.messages;
     },
