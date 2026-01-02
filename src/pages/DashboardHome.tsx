@@ -26,10 +26,14 @@ export default function DashboardHome() {
   const { data: conversationStats, isLoading: statsLoading } = useQuery({
     queryKey: ["conversation-stats", businessId],
     queryFn: async () => {
-      const response = await apiRequest<APIResponse<ConversationStats>>(
-        `/api/v1/conversations/stats`
-      );
-      return response.data;
+      try {
+        const response = await apiRequest<APIResponse<ConversationStats>>(
+          `/api/v1/conversations/stats`
+        );
+        return response.data;
+      } catch {
+        return null;
+      }
     },
   });
 
