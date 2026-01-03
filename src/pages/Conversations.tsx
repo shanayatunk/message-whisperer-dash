@@ -267,7 +267,7 @@ export default function Conversations() {
   const aiToggleMutation = useMutation({
     mutationFn: ({ ticketId, enabled }: { ticketId: string; enabled: boolean }) =>
       apiRequest(`/api/v1/conversations/${ticketId}/ai`, {
-        method: "PATCH",
+        method: "POST",
         body: JSON.stringify({ enabled }),
       }),
     onMutate: async ({ ticketId, enabled }) => {
