@@ -38,6 +38,10 @@ export default function Conversations() {
     preview: conv.preview,
     status: conv.status,
     last_at: conv.last_at,
+    ai_enabled: (conv as any).ai_enabled,
+    ai_paused_by: (conv as any).ai_paused_by,
+    assigned_to: (conv as any).assigned_to,
+    assigned_to_username: (conv as any).assigned_to_username,
   }));
 
   // Initial fetch and filter change
@@ -243,6 +247,7 @@ export default function Conversations() {
           isResolving={resolveMutation.isPending}
           isSending={sendMutation.isPending}
           isAgentTyping={sendMutation.isPending}
+          hasAgentSent={optimisticMessages.length > 0}
           onAssign={(userId) => selectedTicket && assignMutation.mutate({ ticketId: selectedTicket._id, userId })}
           onResolve={() => selectedTicket && resolveMutation.mutate(selectedTicket._id)}
           onSendMessage={handleSendMessage}
