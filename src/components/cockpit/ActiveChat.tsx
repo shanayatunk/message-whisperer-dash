@@ -37,6 +37,7 @@ interface ConversationStatusBannerProps {
 }
 
 function ConversationStatusBanner({ status, onTakeOver, canTakeOver, onRelease, isReleasing, aiEnabled }: ConversationStatusBannerProps) {
+  // 1. Human needed - top priority
   if (status === "human_needed") {
     return (
       <div className="w-full px-4 py-2 bg-amber-100 text-amber-800 text-center text-sm flex items-center justify-center">
@@ -56,15 +57,8 @@ function ConversationStatusBanner({ status, onTakeOver, canTakeOver, onRelease, 
     );
   }
 
-  if (status === "resolved") {
-    return (
-      <div className="w-full px-4 py-2 bg-emerald-100 text-emerald-800 text-center text-sm">
-        ✅ This conversation is resolved.
-      </div>
-    );
-  }
-
-  if (aiEnabled === false && status !== "human_needed" && status !== "resolved") {
+  // 2. AI paused - second priority (overrides "open" status)
+  if (aiEnabled === false && status !== "resolved") {
     return (
       <div className="w-full px-4 py-2 bg-gray-200 text-gray-700 text-center text-sm flex items-center justify-center">
         <span>⏸️ AI is paused. Bot will not reply.</span>
@@ -82,7 +76,16 @@ function ConversationStatusBanner({ status, onTakeOver, canTakeOver, onRelease, 
     );
   }
 
-  // Default: pending or other statuses
+  // 3. Resolved
+  if (status === "resolved") {
+    return (
+      <div className="w-full px-4 py-2 bg-emerald-100 text-emerald-800 text-center text-sm">
+        ✅ This conversation is resolved.
+      </div>
+    );
+  }
+
+  // 4. Default: open, pending, or other statuses - bot is handling
   return (
     <div className="w-full px-4 py-2 bg-muted text-muted-foreground text-center text-sm flex items-center justify-center">
       <span>🤖 Bot is handling this conversation.</span>
