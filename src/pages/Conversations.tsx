@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiRequest, ApiError, getConversations, ConversationSummary } from "@/lib/api";
+import { apiRequest, ApiError, getConversations, ConversationSummary, APIResponse } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,45 +8,42 @@ import { TicketQueue } from "@/components/cockpit/TicketQueue";
 import { ActiveChat } from "@/components/cockpit/ActiveChat";
 import { Ticket } from "@/components/cockpit/TicketCard";
 import { Message } from "@/components/cockpit/ChatMessages";
-import { Bug } from "lucide-react"; // Icon for debug
+import { Bug } from "lucide-react";
 
-// --- SMART EXTRACTOR LOGIC ---
-// This function hunts for the message array in any likely API structure
-function extractMessagesFromResponse(response: any): { messages: Message[], source: string, raw: any } {
+// Smart extractor: finds messages in various API response structures
+function extractMessagesFromResponse(response: any): { messages: Message[]; source: string; raw: any } {
   let msgs: any[] = [];
   let source = "not_found";
 
-  // Case 1: Standard SaaS Response { success: true, data: { messages: [...] } }
+  // Try common API response structures
   if (Array.isArray(response?.data?.messages)) {
     msgs = response.data.messages;
     source = "response.data.messages";
-  }
-  // Case 2: Direct Object { messages: [...] }
-  else if (Array.isArray(response?.messages)) {
+  } else if (Array.isArray(response?.messages)) {
     msgs = response.messages;
     source = "response.messages";
-  }
-  // Case 3: Direct Array [...]
-  else if (Array.isArray(response)) {
+  } else if (Array.isArray(response)) {
     msgs = response;
     source = "root_array";
-  }
-  // Case 4: Envelope with data array { data: [...] }
-  else if (Array.isArray(response?.data)) {
+  } else if (Array.isArray(response?.data)) {
     msgs = response.data;
     source = "response.data";
-  }
-  // Case 5: Deeply nested items (Pagination) { data: { items: [...] } }
-  else if (Array.isArray(response?.data?.items)) {
+  } else if (Array.isArray(response?.data?.items)) {
     msgs = response.data.items;
     source = "response.data.items";
+  } else if (Array.isArray(response?.data?.conversation?.messages)) {
+    msgs = response.data.conversation.messages;
+    source = "response.data.conversation.messages";
+  } else if (Array.isArray(response?.conversation?.messages)) {
+    msgs = response.conversation.messages;
+    source = "response.conversation.messages";
   }
 
-  // NORMALIZE: Ensure every message has 'text' so the UI doesn't break
-  const normalized = msgs.map(m => ({
+  // Normalize: ensure text and timestamp exist
+  const normalized = msgs.map((m) => ({
     ...m,
-    text: m.text || m.content || m.body || "", // Ensure text exists
-    timestamp: m.timestamp || m.created_at || new Date().toISOString() // Ensure timestamp exists
+    text: m.text || m.content || m.body || "",
+    timestamp: m.timestamp || m.created_at || new Date().toISOString(),
   }));
 
   return { messages: normalized, source, raw: response };
@@ -61,11 +58,11 @@ export default function Conversations() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [filter, setFilter] = useState("all");
   const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
-  
-  // DEBUG STATE
+
+  // Debug state
   const [showDebug, setShowDebug] = useState(false);
   const [lastApiResponse, setLastApiResponse] = useState<any>(null);
-  const [extractionSource, setExtractionSource] = useState<string>("");
+  const [extractionSource, setExtractionSource] = useState("");
 
   // Cursor pagination state
   const [allConversations, setAllConversations] = useState<ConversationSummary[]>([]);
@@ -76,7 +73,7 @@ export default function Conversations() {
   const [isFetching, setIsFetching] = useState(false);
 
   // Convert ConversationSummary to Ticket format for compatibility
-  const ticketsData: Ticket[] = allConversations.map((conv) => ({
+  const allTickets: Ticket[] = allConversations.map((conv) => ({
     _id: conv.id,
     phone: conv.phone,
     preview: conv.preview,
@@ -88,14 +85,28 @@ export default function Conversations() {
     assigned_to_username: conv.assigned_to_username,
   }));
 
-  // Initial fetch and filter change
+  // Apply client-side filtering based on filter value
+  const ticketsData: Ticket[] = allTickets.filter((ticket) => {
+    if (filter === "all") {
+      return ticket.status === "open" && (ticket.ai_enabled === false || ticket.ai_paused_by != null);
+    }
+    if (filter === "pending") {
+      return ticket.status === "open" && ticket.ai_enabled === true && ticket.ai_paused_by === null;
+    }
+    if (filter === "resolved") {
+      return ticket.status === "resolved";
+    }
+    return true;
+  });
+
+  // Initial fetch
   const fetchInitial = async () => {
     setIsLoadingInitial(true);
     setIsError(false);
     setIsFetching(true);
     try {
-      const statusParam = filter !== "all" ? filter : undefined;
-      const response = await getConversations(null, 20, statusParam);
+      const statusParam = filter === "resolved" ? "resolved" : "open";
+      const response = await getConversations(null, 50, statusParam);
       setAllConversations(response.data);
       setNextCursor(response.next_cursor);
     } catch {
@@ -111,8 +122,8 @@ export default function Conversations() {
     if (!nextCursor || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      const statusParam = filter !== "all" ? filter : undefined;
-      const response = await getConversations(nextCursor, 20, statusParam);
+      const statusParam = filter === "resolved" ? "resolved" : "open";
+      const response = await getConversations(nextCursor, 50, statusParam);
       setAllConversations((prev) => [...prev, ...response.data]);
       setNextCursor(response.next_cursor);
     } catch {
@@ -129,12 +140,11 @@ export default function Conversations() {
     fetchInitial();
   }, [filter, businessId]);
 
-  // Refresh function
   const handleRefresh = () => {
     fetchInitial();
   };
 
-  // Fetch messages for selected ticket
+  // Fetch messages for selected ticket using smart extractor
   const {
     data: messagesData,
     isLoading: isLoadingMessages,
@@ -143,23 +153,25 @@ export default function Conversations() {
     queryKey: ["messages", selectedTicket?._id],
     queryFn: async () => {
       if (!selectedTicket) return [];
-      
+
       try {
-        // Fetch raw response
         const rawResponse = await apiRequest<any>(
           `/api/v1/conversations/${selectedTicket._id}`
         );
 
-        // Use Smart Extractor
         const { messages, source, raw } = extractMessagesFromResponse(rawResponse);
-        
-        // Save for Debug Panel
+
+        // Store for debug panel
         setLastApiResponse(raw);
         setExtractionSource(source);
-        
-        console.log(`[Cockpit] Extracted ${messages.length} messages from ${source}`);
-        return messages;
 
+        const shouldLog = import.meta.env.DEV || sessionStorage.getItem("debug_api") === "1";
+        if (shouldLog) {
+          console.log(`[Cockpit] Extracted ${messages.length} messages from ${source}`);
+          console.log("[Cockpit] Raw response:", raw);
+        }
+
+        return messages;
       } catch (err) {
         console.error("[Cockpit] Failed to fetch thread:", err);
         throw err;
@@ -183,7 +195,6 @@ export default function Conversations() {
     setAllConversations((prev) =>
       prev.map((conv) => (conv.id === id ? { ...conv, ...updates } : conv))
     );
-    // Also update selected ticket if it's the one being modified
     if (selectedTicket?._id === id) {
       setSelectedTicket((prev) => prev ? { ...prev, ...updates } as Ticket : null);
     }
@@ -299,13 +310,13 @@ export default function Conversations() {
       const newMessage: Message = {
         id: `optimistic-${Date.now()}`,
         content: message,
-        text: message, // Ensure text is present
+        text: message,
         sender: "agent",
         timestamp: new Date().toISOString(),
-        status: "sending"
       };
       setOptimisticMessages((prev) => [...prev, newMessage]);
     },
+    onSuccess: () => {},
     onError: (error) => {
       setOptimisticMessages([]);
       const message = error instanceof ApiError ? error.message : "Send failed";
@@ -343,7 +354,7 @@ export default function Conversations() {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex relative">
+    <div className="h-[calc(100vh-4rem)] flex">
       {/* Left Sidebar - 30% */}
       <div className="w-[30%] min-w-[280px] max-w-[400px]">
         <TicketQueue
@@ -382,38 +393,34 @@ export default function Conversations() {
           onToggleAi={(enabled) => selectedTicket && aiToggleMutation.mutate({ ticketId: selectedTicket._id, enabled })}
         />
 
-        {/* --- DEBUG OVERLAY (Bottom Right) --- */}
+        {/* Debug Overlay */}
         {selectedTicket && (
           <div className="absolute bottom-4 right-4 z-50 flex flex-col items-end gap-2 pointer-events-none">
-             {/* Toggle Button (Clickable) */}
-             <div 
-               onClick={() => setShowDebug(!showDebug)}
-               className="pointer-events-auto bg-black/80 hover:bg-black text-white p-2 rounded-full cursor-pointer shadow-lg transition-all"
-               title="Toggle Data Debugger"
-             >
-               <Bug className="w-5 h-5" />
-             </div>
+            <button
+              onClick={() => setShowDebug(!showDebug)}
+              className="pointer-events-auto bg-primary/80 hover:bg-primary text-primary-foreground p-2 rounded-full cursor-pointer shadow-lg transition-all"
+              title="Toggle Data Debugger"
+            >
+              <Bug className="h-5 w-5" />
+            </button>
 
-             {/* Debug Panel */}
-             {showDebug && (
-                <div className="pointer-events-auto w-[400px] h-[300px] bg-black/90 text-green-400 p-4 rounded-lg shadow-2xl overflow-auto text-xs font-mono border border-green-500/30 backdrop-blur-md">
-                   <div className="font-bold border-b border-green-500/30 pb-2 mb-2 flex justify-between">
-                     <span>API RESPONSE INSPECTOR</span>
-                     <span className="text-white/50">Src: {extractionSource}</span>
-                   </div>
-                   
-                   <div className="mb-2">
-                      <span className="text-white">Messages Found:</span> {allMessages.length}
-                   </div>
-
-                   <div className="mb-2">
-                      <span className="text-white">Raw API Payload:</span>
-                      <pre className="mt-1 text-[10px] text-gray-300 whitespace-pre-wrap break-all">
-                        {lastApiResponse ? JSON.stringify(lastApiResponse, null, 2) : "Waiting for response..."}
-                      </pre>
-                   </div>
+            {showDebug && (
+              <div className="pointer-events-auto bg-card border border-border rounded-lg shadow-xl p-4 max-w-md max-h-96 overflow-auto text-sm">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold text-foreground">API Response Inspector</span>
+                  <span className="text-xs text-muted-foreground">Src: {extractionSource || "n/a"}</span>
                 </div>
-             )}
+                <div className="mb-2 text-foreground">
+                  Messages Found: <span className="font-bold">{allMessages.length}</span>
+                </div>
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Raw API Payload:</span>
+                  <pre className="mt-1 p-2 bg-muted rounded text-muted-foreground overflow-auto max-h-48">
+                    {lastApiResponse ? JSON.stringify(lastApiResponse, null, 2).slice(0, 2000) : "Waiting for response..."}
+                  </pre>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
