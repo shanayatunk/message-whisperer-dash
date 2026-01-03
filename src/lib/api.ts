@@ -55,6 +55,10 @@ export interface ConversationSummary {
   preview: string;
   status: string;
   last_at: string | null;
+  ai_enabled?: boolean;
+  ai_paused_by?: string | null;
+  assigned_to?: string | null;
+  assigned_to_username?: string | null;
 }
 
 export interface ConversationsResponse {
