@@ -161,16 +161,11 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
             // PRIMARY: Use text, FALLBACK: Use content
             const displayContent = msg.text || msg.content || "";
             
-            // PRIMARY: Use direction if available
-            // FALLBACK: Use source - customer=inbound, ai/bot/agent/system=outbound
-            const isInbound = msg.direction 
-              ? msg.direction === "inbound" 
-              : msg.source 
-                ? msg.source === "customer"
-                : msg.sender === "user";
+            // Use sender as single source of truth for message direction
+            const isInbound = msg.sender === "user";
             
-            // Check if this is an AI/bot message for labeling
-            const isAiOrBot = msg.source === "ai" || msg.source === "bot";
+            // Check if this is a bot message for labeling
+            const isAiOrBot = msg.sender === "bot";
             
             const time = msg.timestamp || msg.created_at;
             const msgDate = getMessageDate(msg);
