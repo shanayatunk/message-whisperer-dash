@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { MessageSquare, UserCheck, Package, ShoppingCart, RefreshCw, IndianRupee, AlertCircle } from "lucide-react";
 
 interface PackerPerformance {
-  packer_name: string;
-  orders_packed: number;
-  avg_time_minutes: number;
+  name: string;
+  count: number;
+  last_active: string;
 }
 
 interface ConversationStats {
@@ -35,12 +35,12 @@ export default function DashboardHome() {
     enabled: !!businessId,
     queryFn: async () => {
       console.log("[Dashboard] Fetching conversation stats for business:", businessId);
-      const response = await apiRequest<APIResponse<ConversationStats>>(
+      const response = await apiRequest<APIResponse<{ stats: ConversationStats }>>(
         `/api/v1/conversations/stats`
       );
       console.log("[Dashboard] Stats API response:", response);
-      console.log("[Dashboard] Stats data:", response.data);
-      return response.data;
+      console.log("[Dashboard] Stats data:", response.data?.stats);
+      return response.data?.stats;
     },
   });
 
@@ -249,12 +249,12 @@ export default function DashboardHome() {
               <div className="space-y-2">
                 {packerPerformance.slice(0, 3).map((packer) => (
                   <div
-                    key={packer.packer_name}
+                    key={packer.name}
                     className="flex items-center justify-between text-sm"
                   >
-                    <span className="font-medium">{packer.packer_name}</span>
+                    <span className="font-medium">{packer.name}</span>
                     <span className="text-muted-foreground">
-                      {packer.orders_packed ?? 0} orders ({(packer.avg_time_minutes ?? 0).toFixed(1)} min avg)
+                      {packer.count ?? 0} orders
                     </span>
                   </div>
                 ))}
