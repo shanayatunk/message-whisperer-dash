@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, MessageSquare, Radio, Package, LogOut, Menu, Settings2 } from "lucide-react";
+import { BusinessSelector } from "@/components/cockpit/BusinessSelector";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -74,6 +75,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           </Button>
 
           <div className="flex-1" />
+
+          {/* Business Selector */}
+          <BusinessSelector />
 
           {/* Logout Button */}
           <Button
