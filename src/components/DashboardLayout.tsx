@@ -23,15 +23,25 @@ const envBadgeClass =
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { logout } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background flex">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
         className={cn(
-          "bg-sidebar-background border-r border-sidebar-border transition-all duration-200 flex flex-col",
-          sidebarOpen ? "w-52" : "w-14"
+          "bg-sidebar-background border-r border-sidebar-border transition-all duration-200 flex flex-col z-50",
+          // Mobile: fixed drawer, hidden by default
+          "fixed inset-y-0 left-0 md:relative",
+          sidebarOpen ? "w-52 translate-x-0" : "w-52 -translate-x-full md:translate-x-0 md:w-14"
         )}
       >
         {/* Logo */}
@@ -52,6 +62,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               <Link
                 key={item.path}
                 to={item.path}
+                onClick={() => setSidebarOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                   isActive
@@ -60,17 +71,17 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 )}
               >
                 <item.icon className="h-4 w-4 shrink-0" />
-                {sidebarOpen && <span className="truncate">{item.label}</span>}
+                {(sidebarOpen || window.innerWidth < 768) && <span className="truncate">{item.label}</span>}
               </Link>
             );
           })}
         </nav>
       </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main Content - add left margin on desktop for collapsed sidebar */}
+      <div className="flex-1 flex flex-col min-w-0 md:ml-14">
         {/* Top Bar */}
-        <header className="h-12 border-b border-border bg-card flex items-center px-3 gap-3">
+        <header className="h-12 border-b border-border bg-card flex items-center px-2 sm:px-3 gap-2 sm:gap-3">
           <Button
             variant="ghost"
             size="icon"
@@ -83,7 +94,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="flex-1" />
 
           {/* Environment Badge */}
-          <span className={`px-2 py-1 text-xs font-semibold rounded-full uppercase ${envBadgeClass}`}>
+          <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs font-semibold rounded-full uppercase whitespace-nowrap ${envBadgeClass}`}>
             {envLabel}
           </span>
 
@@ -95,7 +106,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             variant="ghost"
             size="sm"
             onClick={logout}
-            className="h-8 gap-2 text-muted-foreground hover:text-foreground"
+            className="h-8 gap-1 sm:gap-2 text-muted-foreground hover:text-foreground px-2 sm:px-3"
           >
             <LogOut className="h-4 w-4" />
             <span className="hidden sm:inline">Logout</span>
@@ -103,7 +114,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto p-4">{children}</main>
+        <main className="flex-1 overflow-auto p-3 sm:p-4">{children}</main>
       </div>
     </div>
   );
