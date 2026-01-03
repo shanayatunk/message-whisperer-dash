@@ -302,7 +302,7 @@ export default function Conversations() {
   // Send message mutation
   const sendMutation = useMutation({
     mutationFn: ({ ticketId, message }: { ticketId: string; message: string }) =>
-      apiRequest(`/api/v1/conversations/${ticketId}/send`, {
+      apiRequest<any>(`/api/v1/conversations/${ticketId}/send`, {
         method: "POST",
         body: JSON.stringify({ message }),
       }),
@@ -316,7 +316,21 @@ export default function Conversations() {
       };
       setOptimisticMessages((prev) => [...prev, newMessage]);
     },
-    onSuccess: () => {},
+    onSuccess: (response, { ticketId }) => {
+      // Clear optimistic messages since we'll get real data
+      setOptimisticMessages([]);
+      
+      // Invalidate messages query to refetch the real message list
+      queryClient.invalidateQueries({ queryKey: ["messages", ticketId] });
+      
+      // If backend indicates AI was paused by this action, update locally
+      if (response?.ai_enabled === false || response?.data?.ai_enabled === false) {
+        updateConversationOptimistically(ticketId, {
+          ai_enabled: false,
+          ai_paused_by: user?.id || "agent",
+        } as any);
+      }
+    },
     onError: (error) => {
       setOptimisticMessages([]);
       const message = error instanceof ApiError ? error.message : "Send failed";
