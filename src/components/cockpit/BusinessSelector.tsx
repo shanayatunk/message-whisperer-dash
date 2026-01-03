@@ -32,6 +32,7 @@ export function BusinessSelector() {
         <SelectValue placeholder={isLoading ? "Switching..." : "Select business"} />
       </SelectTrigger>
       <SelectContent>
+        <SelectItem value="all">All Businesses</SelectItem>
         <SelectItem value="feelori">Feelori</SelectItem>
         <SelectItem value="goldencollections">Golden Collections</SelectItem>
       </SelectContent>
