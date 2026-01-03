@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface BusinessContextType {
   businessId: string;
@@ -8,7 +9,15 @@ interface BusinessContextType {
 const BusinessContext = createContext<BusinessContextType | null>(null);
 
 export function BusinessProvider({ children }: { children: ReactNode }) {
-  const [businessId, setBusinessId] = useState("feelori");
+  const { user } = useAuth();
+  const [businessId, setBusinessId] = useState(user?.tenant_id || "feelori");
+
+  // Sync with auth context when user's tenant changes
+  useEffect(() => {
+    if (user?.tenant_id) {
+      setBusinessId(user.tenant_id);
+    }
+  }, [user?.tenant_id]);
 
   return (
     <BusinessContext.Provider value={{ businessId, setBusinessId }}>
