@@ -3,7 +3,8 @@ import { apiRequest, AbandonedCartsStats, APIResponse } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MessageSquare, UserCheck, Package, ShoppingCart, RefreshCw, IndianRupee } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MessageSquare, UserCheck, Package, ShoppingCart, RefreshCw, IndianRupee, AlertCircle } from "lucide-react";
 
 interface PackerPerformance {
   packer_name: string;
@@ -23,38 +24,70 @@ export default function DashboardHome() {
   const { businessId } = useBusiness();
 
   // Fetch conversation stats - backend extracts tenant from auth token
-  const { data: conversationStats, isLoading: statsLoading } = useQuery({
+  const { 
+    data: conversationStats, 
+    isLoading: statsLoading, 
+    isError: statsError,
+    error: statsErrorDetails,
+    refetch: refetchStats 
+  } = useQuery({
     queryKey: ["conversation-stats", businessId],
+    enabled: !!businessId,
     queryFn: async () => {
-      try {
-        const response = await apiRequest<APIResponse<ConversationStats>>(
-          `/api/v1/conversations/stats`
-        );
-        return response.data;
-      } catch {
-        return null;
-      }
+      console.log("[Dashboard] Fetching conversation stats for business:", businessId);
+      const response = await apiRequest<APIResponse<ConversationStats>>(
+        `/api/v1/conversations/stats`
+      );
+      console.log("[Dashboard] Stats API response:", response);
+      console.log("[Dashboard] Stats data:", response.data);
+      return response.data;
     },
   });
 
   // Fetch packer performance - backend extracts tenant from auth token
-  const { data: packerPerformance, isLoading: packersLoading } = useQuery({
+  const { 
+    data: packerPerformance, 
+    isLoading: packersLoading,
+    isError: packersError,
+    refetch: refetchPackers 
+  } = useQuery({
     queryKey: ["packer-performance", businessId],
+    enabled: !!businessId,
     queryFn: async () => {
+      console.log("[Dashboard] Fetching packer performance for business:", businessId);
       const response = await apiRequest<APIResponse<{ metrics: PackerPerformance[] }>>(
         `/api/v1/admin/packer-performance`
       );
+      console.log("[Dashboard] Packer API response:", response);
       return response.data?.metrics || [];
     },
   });
 
+  // Log any errors
+  if (statsError) {
+    console.error("[Dashboard] Stats error:", statsErrorDetails);
+  }
+
+  const handleRefreshAll = () => {
+    refetchStats();
+    refetchPackers();
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Overview for {businessId === "feelori" ? "Feelori" : "Golden Collections"}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Overview for {businessId === "feelori" ? "Feelori" : "Golden Collections"}
+          </p>
+        </div>
+        {(statsError || packersError) && (
+          <Button variant="outline" size="sm" onClick={handleRefreshAll}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -69,6 +102,11 @@ export default function DashboardHome() {
           <CardContent>
             {statsLoading ? (
               <Skeleton className="h-9 w-16" />
+            ) : statsError ? (
+              <div className="flex items-center gap-1 text-destructive text-sm">
+                <AlertCircle className="h-4 w-4" />
+                Failed to load
+              </div>
             ) : (
               <div className="text-3xl font-bold">
                 {conversationStats?.open ?? 0}
@@ -91,6 +129,11 @@ export default function DashboardHome() {
           <CardContent>
             {statsLoading ? (
               <Skeleton className="h-9 w-16" />
+            ) : statsError ? (
+              <div className="flex items-center gap-1 text-destructive text-sm">
+                <AlertCircle className="h-4 w-4" />
+                Failed to load
+              </div>
             ) : (
               <div className="text-3xl font-bold">
                 {conversationStats?.triaged ?? 0}
@@ -113,6 +156,11 @@ export default function DashboardHome() {
           <CardContent>
             {statsLoading ? (
               <Skeleton className="h-9 w-16" />
+            ) : statsError ? (
+              <div className="flex items-center gap-1 text-destructive text-sm">
+                <AlertCircle className="h-4 w-4" />
+                Failed to load
+              </div>
             ) : (
               <div className="text-3xl font-bold">
                 {conversationStats?.abandoned_carts?.today_count ?? 0}
@@ -135,6 +183,11 @@ export default function DashboardHome() {
           <CardContent>
             {statsLoading ? (
               <Skeleton className="h-9 w-16" />
+            ) : statsError ? (
+              <div className="flex items-center gap-1 text-destructive text-sm">
+                <AlertCircle className="h-4 w-4" />
+                Failed to load
+              </div>
             ) : (
               <div className="text-3xl font-bold text-green-600">
                 {conversationStats?.abandoned_carts?.recovered_count ?? 0}
@@ -157,6 +210,11 @@ export default function DashboardHome() {
           <CardContent>
             {statsLoading ? (
               <Skeleton className="h-9 w-16" />
+            ) : statsError ? (
+              <div className="flex items-center gap-1 text-destructive text-sm">
+                <AlertCircle className="h-4 w-4" />
+                Failed to load
+              </div>
             ) : (
               <div className="text-3xl font-bold text-green-600">
                 ₹ {(conversationStats?.abandoned_carts?.revenue_recovered ?? 0).toLocaleString("en-IN")}
@@ -181,6 +239,11 @@ export default function DashboardHome() {
               <div className="space-y-2">
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-3/4" />
+              </div>
+            ) : packersError ? (
+              <div className="flex items-center gap-1 text-destructive text-sm">
+                <AlertCircle className="h-4 w-4" />
+                Failed to load packer data
               </div>
             ) : packerPerformance && packerPerformance.length > 0 ? (
               <div className="space-y-2">
