@@ -6,12 +6,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function BusinessSelector() {
-  const { businessId } = useBusiness();
-  const { switchBusiness } = useAuth();
+  const { user, switchBusiness } = useAuth();
+  const businessId = user?.tenant_id || "feelori";
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSwitch = async (newVal: string) => {
