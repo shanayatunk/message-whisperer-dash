@@ -163,7 +163,7 @@ export function ActiveChat({
       <ConversationStatusBanner
         status={ticket.status}
         onTakeOver={handleTakeOver}
-        canTakeOver={ticket.status === "pending" && !!user}
+        canTakeOver={(ticket.status === "open" || ticket.status === "pending") && !!user}
         onRelease={ticket.status === "human_needed" ? handleRelease : undefined}
         isReleasing={isReleasing}
       />
