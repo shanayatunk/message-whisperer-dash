@@ -3,6 +3,7 @@ import { apiRequest, ApiError, getConversations, ConversationSummary } from "@/l
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { TicketQueue } from "@/components/cockpit/TicketQueue";
 import { ActiveChat } from "@/components/cockpit/ActiveChat";
 import { Ticket } from "@/components/cockpit/TicketCard";
@@ -19,6 +20,7 @@ interface ConversationThreadResponse {
 export default function Conversations() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { businessId } = useBusiness();
   const queryClient = useQueryClient();
 
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -80,10 +82,12 @@ export default function Conversations() {
     }
   };
 
-  // Fetch on mount and filter change
+  // Fetch on mount, filter change, or business change
   useEffect(() => {
+    setSelectedTicket(null);
+    setOptimisticMessages([]);
     fetchInitial();
-  }, [filter]);
+  }, [filter, businessId]);
 
   // Refresh function
   const handleRefresh = () => {
