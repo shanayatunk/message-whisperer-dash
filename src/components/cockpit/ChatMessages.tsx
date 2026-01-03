@@ -12,8 +12,9 @@ export type MessageStatus = "sending" | "sent" | "delivered" | "read";
 export interface Message {
   id?: string;
   _id?: string;
-  content: string;
-  sender: "user" | "agent" | "bot";
+  content?: string; // Made optional
+  text?: string;    // Added text support
+  sender?: "user" | "agent" | "bot"; // Optional
   direction?: "inbound" | "outbound";
   timestamp?: string;
   created_at?: string;
@@ -30,34 +31,37 @@ interface ChatMessagesProps {
 }
 
 function cleanContent(content: string): string {
+  if (!content) return "";
   try {
-    const parsed = JSON.parse(content);
-    if (parsed?.body) return parsed.body;
-    if (parsed?.text?.body) return parsed.text.body;
+    // Handle potential JSON strings from older legacy data
+    if (content.startsWith("{") || content.startsWith("[")) {
+      const parsed = JSON.parse(content);
+      if (parsed?.body) return parsed.body;
+      if (parsed?.text?.body) return parsed.text.body;
+    }
   } catch {
-    // Not JSON
+    // Not JSON, return as is
   }
   return content;
 }
 
-// Extract media ID from visual_search pattern
 function extractVisualSearchMediaId(content: string): string | null {
+  if (!content) return null;
   const match = content.match(/visual_search_(\d+)_caption_/);
   return match ? match[1] : null;
 }
 
 function isVisualSearchContent(content: string): boolean {
-  return content.includes("visual_search_");
+  return content ? content.includes("visual_search_") : false;
 }
 
 function isAgentEntryMessage(content: string, direction?: string): boolean {
-  if (direction !== "outbound") return false;
-  const cleaned = cleanContent(content);
-  return cleaned.startsWith("👋 Hi, I'm");
+  if (direction !== "outbound" || !content) return false;
+  return content.startsWith("👋 Hi, I'm");
 }
 
 const normalizeUTC = (dateStr: string) =>
-  dateStr.endsWith("Z") ? dateStr : `${dateStr}Z`;
+  dateStr && dateStr.endsWith("Z") ? dateStr : `${dateStr}Z`;
 
 function getMessageDate(msg: Message): Date {
   const time = msg.timestamp || msg.created_at;
@@ -80,11 +84,11 @@ function isSameDay(date1: Date, date2: Date): boolean {
 
 function TypingIndicator() {
   return (
-    <div className="flex justify-end">
-      <div className="bg-primary/80 rounded-lg px-4 py-3 flex items-center gap-1">
-        <span className="w-2 h-2 bg-primary-foreground/70 rounded-full animate-bounce [animation-delay:-0.3s]" />
-        <span className="w-2 h-2 bg-primary-foreground/70 rounded-full animate-bounce [animation-delay:-0.15s]" />
-        <span className="w-2 h-2 bg-primary-foreground/70 rounded-full animate-bounce" />
+    <div className="flex justify-start">
+      <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-1 shadow-sm">
+        <span className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+        <span className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+        <span className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce" />
       </div>
     </div>
   );
@@ -92,16 +96,16 @@ function TypingIndicator() {
 
 function DeliveryStatus({ status }: { status?: MessageStatus }) {
   if (!status || status === "sending") {
-    return <Check className="h-3 w-3 text-emerald-600/50" />;
+    return <Check className="h-3 w-3 text-zinc-400" />;
   }
   if (status === "sent") {
-    return <Check className="h-3 w-3 text-emerald-600/70" />;
+    return <Check className="h-3 w-3 text-zinc-400" />;
   }
   if (status === "delivered") {
-    return <CheckCheck className="h-3 w-3 text-emerald-600/70" />;
+    return <CheckCheck className="h-3 w-3 text-zinc-400" />;
   }
   // read
-  return <CheckCheck className="h-3 w-3 text-sky-500" />;
+  return <CheckCheck className="h-3 w-3 text-blue-500" />;
 }
 
 export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: ChatMessagesProps) {
@@ -109,14 +113,12 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
 
-  const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
-
+  // Auto-scroll logic
   useEffect(() => {
-    // Auto-scroll to bottom when messages change
-    bottomRef.current?.scrollIntoView({ behavior: "auto" });
-  }, [messages]);
+    if (messages?.length) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isAgentTyping]);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
@@ -124,12 +126,16 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
     setShowScrollButton(!isNearBottom);
   }, []);
 
+  const scrollToBottom = () => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   if (isLoading) {
     return (
-      <div className="flex-1 p-4 space-y-4">
-        {[...Array(5)].map((_, i) => (
+      <div className="flex-1 p-4 space-y-6">
+        {[...Array(3)].map((_, i) => (
           <div key={i} className={cn("flex", i % 2 === 0 ? "justify-start" : "justify-end")}>
-            <Skeleton className="h-12 w-2/3" />
+            <Skeleton className={cn("h-16 w-[60%] rounded-2xl", i % 2 === 0 ? "rounded-tl-none" : "rounded-tr-none")} />
           </div>
         ))}
       </div>
@@ -138,146 +144,159 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
 
   if (isError) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-destructive">Failed to load messages</p>
+      <div className="flex-1 flex items-center justify-center bg-zinc-50/50">
+        <p className="text-sm text-destructive bg-destructive/10 px-4 py-2 rounded-lg">Failed to load messages</p>
       </div>
     );
   }
 
   if (!messages || messages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-muted-foreground">No messages yet</p>
+      <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground bg-zinc-50/50">
+        <div className="bg-zinc-100 p-4 rounded-full mb-4">
+          <Megaphone className="h-8 w-8 opacity-20" />
+        </div>
+        <p className="text-sm font-medium">No messages yet</p>
+        <p className="text-xs opacity-70 mt-1">Start the conversation below</p>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 relative overflow-hidden">
-      <ScrollArea className="h-full" ref={scrollRef} onScrollCapture={handleScroll}>
-        <div className="p-4 space-y-3">
+    <div className="flex-1 relative overflow-hidden bg-[#efe7dd] dark:bg-[#0b141a]"> {/* WhatsApp-like Background Color */}
+      {/* Optional: Add a subtle background pattern image here via CSS if desired */}
+      
+      <ScrollArea className="h-full px-2" ref={scrollRef} onScrollCapture={handleScroll}>
+        <div className="py-4 space-y-2 px-2">
           {messages.map((msg, idx) => {
-            // Use direction if available, fallback to sender logic
+            // Determine Direction
             const isInbound = msg.direction 
               ? msg.direction === "inbound" 
               : msg.sender === "user";
+            
+            // Get Dates
             const time = msg.timestamp || msg.created_at;
             const msgDate = getMessageDate(msg);
             
-            // Check if we need a date separator
+            // Date Separator Logic
             const prevMsg = idx > 0 ? messages[idx - 1] : null;
             const prevDate = prevMsg ? getMessageDate(prevMsg) : null;
             const showDateSeparator = !prevDate || !isSameDay(msgDate, prevDate);
 
-            // Check for visual_search pattern in content
-            const visualSearchMediaId = msg.content ? extractVisualSearchMediaId(msg.content) : null;
-            const hasVisualSearch = msg.content ? isVisualSearchContent(msg.content) : false;
+            // Content Extraction (Support text OR content)
+            const rawContent = msg.text || msg.content || "";
+            const visualSearchMediaId = extractVisualSearchMediaId(rawContent);
+            const hasVisualSearch = isVisualSearchContent(rawContent);
+            const textToShow = cleanContent(rawContent);
 
-            // Check if this is an agent entry system message or system source
-            const isSystemMessage = msg.source === "system" || (msg.content ? isAgentEntryMessage(msg.content, msg.direction) : false);
-            
-            // Check if this is a broadcast message
+            // System Message Check
+            const isSystemMessage = msg.source === "system" || isAgentEntryMessage(rawContent, msg.direction);
             const isBroadcast = msg.source === "broadcast";
 
             return (
-              <div key={msg.id || msg._id || idx}>
+              <div key={msg.id || msg._id || idx} className="flex flex-col">
+                {/* Date Separator */}
                 {showDateSeparator && (
-                  <div className="flex justify-center my-4">
-                    <span className="bg-muted text-muted-foreground text-xs px-3 py-1 rounded-full">
+                  <div className="flex justify-center my-4 sticky top-2 z-10">
+                    <span className="bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm text-zinc-500 text-[11px] font-medium px-3 py-1 rounded-full shadow-sm border border-zinc-100 dark:border-zinc-700">
                       {formatDateSeparator(msgDate)}
                     </span>
                   </div>
                 )}
                 
-                {/* Render as system banner for system messages */}
+                {/* System Message Banner */}
                 {isSystemMessage ? (
                   <div className="flex justify-center my-2">
-                    <div className="w-full bg-slate-50 rounded-md py-1 px-3 flex items-center justify-center gap-2">
-                      <UserRound className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">
-                        {cleanContent(msg.content)}
-                      </span>
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-xs px-3 py-1.5 rounded-md flex items-center gap-2 border border-yellow-100 dark:border-yellow-800/50">
+                      <UserRound className="h-3 w-3" />
+                      <span>{textToShow}</span>
                     </div>
                   </div>
                 ) : (
-                  <div className={cn("flex", isInbound ? "justify-start" : "justify-end")}>
+                  /* Standard Message Bubble */
+                  <div className={cn("flex w-full mb-1", isInbound ? "justify-start" : "justify-end")}>
                     <div
                       className={cn(
-                        "max-w-[75%] px-3 py-2 text-sm",
+                        "relative max-w-[85%] sm:max-w-[70%] px-3 py-2 text-[15px] leading-relaxed shadow-sm",
                         isInbound
-                          ? "bg-card border border-border text-foreground rounded-lg rounded-tl-none"
-                          : isBroadcast
-                            ? "bg-purple-50 text-purple-900 rounded-lg rounded-tr-none border border-purple-200"
-                            : "bg-emerald-100 text-emerald-900 rounded-lg rounded-tr-none"
+                          ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl rounded-tl-none" 
+                          : "bg-[#d9fdd3] dark:bg-[#005c4b] text-zinc-900 dark:text-zinc-100 rounded-2xl rounded-tr-none"
                       )}
                     >
-                      {/* Render image from image_media_id */}
+                      {/* Image Attachment */}
                       {msg.image_media_id && (
                         <SecureImage
                           mediaId={msg.image_media_id}
-                          alt="Message attachment"
-                          className="mb-2 rounded-lg max-w-[200px]"
+                          alt="Attachment"
+                          className="mb-2 rounded-lg w-full max-w-[240px]"
                         />
                       )}
-                      {/* Render image from visual_search pattern */}
+                      
+                      {/* Visual Search Image */}
                       {!msg.image_media_id && hasVisualSearch && visualSearchMediaId && (
                         <SecureImage
                           mediaId={visualSearchMediaId}
-                          alt="Visual search image"
-                          className="mb-2 rounded-lg max-w-[200px]"
+                          alt="Visual Search"
+                          className="mb-2 rounded-lg w-full max-w-[240px]"
                         />
                       )}
-                      {/* Render text content (skip if it's only a visual_search pattern) */}
-                      {msg.content && !hasVisualSearch && (
-                        <p className="whitespace-pre-wrap break-words">{cleanContent(msg.content)}</p>
+
+                      {/* Message Text */}
+                      {!hasVisualSearch && textToShow && (
+                        <p className="whitespace-pre-wrap break-words">{textToShow}</p>
                       )}
-                      {time && (
-                        <div className={cn(
-                          "flex items-center gap-1 mt-1",
-                          isInbound ? "justify-start" : "justify-end"
-                        )}>
-                          {/* Source icons for outbound messages */}
-                          {!isInbound && isBroadcast && (
-                            <Megaphone className="h-3 w-3 text-purple-600" />
-                          )}
-                          {!isInbound && msg.source === "bot" && (
-                            <Bot className="h-3 w-3 text-emerald-600" />
-                          )}
-                          {!isInbound && msg.source === "agent" && (
-                            <UserRound className="h-3 w-3 text-emerald-600" />
-                          )}
+
+                      {/* Metadata Row (Time + Status) */}
+                      <div className={cn(
+                        "flex items-center gap-1 mt-1 select-none",
+                        isInbound ? "justify-end" : "justify-end"
+                      )}>
+                        {/* Source Indicators */}
+                        {!isInbound && (
+                          <>
+                            {isBroadcast && <Megaphone className="h-3 w-3 text-purple-500" />}
+                            {msg.source === "bot" && <Bot className="h-3 w-3 text-emerald-600 opacity-70" />}
+                            {msg.source === "agent" && <UserRound className="h-3 w-3 text-blue-600 opacity-70" />}
+                          </>
+                        )}
+                        
+                        {/* Timestamp */}
+                        {time && (
                           <span className={cn(
-                            "text-xs opacity-70",
-                            isInbound 
-                              ? "text-muted-foreground" 
-                              : isBroadcast 
-                                ? "text-purple-700" 
-                                : "text-emerald-700"
+                            "text-[10px]",
+                            isInbound ? "text-zinc-400" : "text-emerald-900/60 dark:text-emerald-100/60"
                           )}>
                             {new Date(normalizeUTC(time)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
-                          {!isInbound && <DeliveryStatus status={msg.status} />}
-                        </div>
-                      )}
+                        )}
+                        
+                        {/* Read Receipt (Only for outbound) */}
+                        {!isInbound && <DeliveryStatus status={msg.status} />}
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
             );
           })}
+          
+          {/* Typing Indicator */}
           {isAgentTyping && <TypingIndicator />}
-          <div ref={bottomRef} />
+          
+          {/* Invisible div to scroll to */}
+          <div ref={bottomRef} className="h-2" />
         </div>
       </ScrollArea>
       
+      {/* "Scroll to Bottom" Button (Only shows when scrolled up) */}
       {showScrollButton && (
         <Button
           size="icon"
           variant="secondary"
-          className="absolute bottom-4 right-4 rounded-full shadow-lg h-10 w-10"
+          className="absolute bottom-4 right-4 h-9 w-9 rounded-full shadow-lg bg-white/90 hover:bg-white text-zinc-600 border border-zinc-200 z-20"
           onClick={scrollToBottom}
         >
-          <ChevronDown className="h-5 w-5" />
+          <ChevronDown className="h-4 w-4" />
         </Button>
       )}
     </div>
