@@ -18,6 +18,7 @@ interface ActiveChatProps {
   isResolving: boolean;
   isSending: boolean;
   isAgentTyping?: boolean;
+  hasAgentSent?: boolean;
   onAssign: (userId: string) => void;
   onResolve: () => void;
   onSendMessage: (message: string) => void;
@@ -87,6 +88,7 @@ export function ActiveChat({
   isResolving,
   isSending,
   isAgentTyping,
+  hasAgentSent,
   onAssign,
   onResolve,
   onSendMessage,
@@ -171,6 +173,9 @@ export function ActiveChat({
         onSend={onSendMessage}
         isSending={isSending}
         disabled={isLoadingMessages}
+        aiEnabled={ticket.ai_enabled}
+        aiPausedBy={ticket.ai_paused_by}
+        hasAgentSent={hasAgentSent}
       />
     </div>
   );
