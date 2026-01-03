@@ -134,7 +134,8 @@ export function ActiveChat({
   const handleTakeOver = () => {
     if (user) {
       onAssign(user.id || user.username || "");
-      onTicketUpdate?.();
+      // Pause AI when taking over - this triggers optimistic update in parent
+      onToggleAi?.(false);
     }
   };
 
