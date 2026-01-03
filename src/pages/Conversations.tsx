@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { apiRequest, ApiError, getConversations, ConversationSummary } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { TicketQueue } from "@/components/cockpit/TicketQueue";
 import { ActiveChat } from "@/components/cockpit/ActiveChat";
 import { Ticket } from "@/components/cockpit/TicketCard";
@@ -17,6 +18,7 @@ interface ConversationThreadResponse {
 
 export default function Conversations() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -38,10 +40,10 @@ export default function Conversations() {
     preview: conv.preview,
     status: conv.status,
     last_at: conv.last_at,
-    ai_enabled: (conv as any).ai_enabled,
-    ai_paused_by: (conv as any).ai_paused_by,
-    assigned_to: (conv as any).assigned_to,
-    assigned_to_username: (conv as any).assigned_to_username,
+    ai_enabled: conv.ai_enabled,
+    ai_paused_by: conv.ai_paused_by,
+    assigned_to: conv.assigned_to,
+    assigned_to_username: conv.assigned_to_username,
   }));
 
   // Initial fetch and filter change
@@ -115,49 +117,121 @@ export default function Conversations() {
     }
   );
 
-  // Assign mutation
+  // Helper to update conversation in list optimistically
+  const updateConversationOptimistically = useCallback((id: string, updates: Partial<ConversationSummary>) => {
+    setAllConversations((prev) =>
+      prev.map((conv) => (conv.id === id ? { ...conv, ...updates } : conv))
+    );
+    // Also update selected ticket if it's the one being modified
+    if (selectedTicket?._id === id) {
+      setSelectedTicket((prev) => prev ? { ...prev, ...updates } as Ticket : null);
+    }
+  }, [selectedTicket]);
+
+  // Assign mutation with optimistic update
   const assignMutation = useMutation({
     mutationFn: ({ ticketId, userId }: { ticketId: string; userId: string }) =>
       apiRequest(`/api/v1/conversations/${ticketId}/assign`, {
         method: "POST",
         body: JSON.stringify({ user_id: userId }),
       }),
+    onMutate: async ({ ticketId, userId }) => {
+      // Optimistic update - show agent ID immediately
+      updateConversationOptimistically(ticketId, {
+        assigned_to: userId,
+        assigned_to_username: userId.length > 12 ? undefined : userId,
+      } as any);
+    },
     onSuccess: () => {
       toast({ title: "Assigned", description: "Ticket assigned successfully" });
-      queryClient.invalidateQueries({ queryKey: ["tickets"] });
     },
-    onError: (error) => {
+    onError: (error, { ticketId }) => {
+      // Revert on error
+      updateConversationOptimistically(ticketId, { assigned_to: null, assigned_to_username: null } as any);
       const message = error instanceof ApiError ? error.message : "Assignment failed";
       toast({ variant: "destructive", title: "Error", description: message });
     },
   });
 
-  // Resolve mutation
+  // Resolve mutation with optimistic update
   const resolveMutation = useMutation({
     mutationFn: (ticketId: string) =>
       apiRequest(`/api/v1/conversations/${ticketId}/resolve`, {
         method: "PUT",
       }),
-    onSuccess: () => {
-      toast({ title: "Resolved", description: "Ticket marked as resolved" });
-      
-      // Remove from queue and clear chat
-      queryClient.invalidateQueries({ queryKey: ["tickets"] });
-      
+    onMutate: async (ticketId) => {
+      // Save current state for rollback
+      const previousConversations = [...allConversations];
+      const previousSelectedTicket = selectedTicket;
+
+      // If filtering by 'open', remove from list immediately
+      if (filter === "open") {
+        setAllConversations((prev) => prev.filter((c) => c.id !== ticketId));
+      } else {
+        // Otherwise just update status
+        updateConversationOptimistically(ticketId, { status: "resolved" } as any);
+      }
+
       // Auto-select next ticket
-      const currentIndex = ticketsData?.findIndex((t) => t._id === selectedTicket?._id) ?? -1;
+      const currentIndex = ticketsData?.findIndex((t) => t._id === ticketId) ?? -1;
       const nextTicket = ticketsData?.[currentIndex + 1] || ticketsData?.[0] || null;
-      
-      if (nextTicket && nextTicket._id !== selectedTicket?._id) {
+      if (nextTicket && nextTicket._id !== ticketId) {
         setSelectedTicket(nextTicket);
       } else {
         setSelectedTicket(null);
       }
-      
       setOptimisticMessages([]);
+
+      return { previousConversations, previousSelectedTicket };
     },
-    onError: (error) => {
+    onSuccess: () => {
+      toast({ title: "Resolved", description: "Ticket marked as resolved" });
+    },
+    onError: (error, ticketId, context) => {
+      // Revert on error
+      if (context) {
+        setAllConversations(context.previousConversations);
+        setSelectedTicket(context.previousSelectedTicket);
+      }
       const message = error instanceof ApiError ? error.message : "Resolve failed";
+      toast({ variant: "destructive", title: "Error", description: message });
+    },
+  });
+
+  // AI Toggle mutation with optimistic update
+  const aiToggleMutation = useMutation({
+    mutationFn: ({ ticketId, enabled }: { ticketId: string; enabled: boolean }) =>
+      apiRequest(`/api/v1/conversations/${ticketId}/ai`, {
+        method: "PATCH",
+        body: JSON.stringify({ enabled }),
+      }),
+    onMutate: async ({ ticketId, enabled }) => {
+      // Optimistic update - toggle AI state immediately
+      const previousAiEnabled = allConversations.find((c) => c.id === ticketId)?.ai_enabled;
+      const previousAiPausedBy = (allConversations.find((c) => c.id === ticketId) as any)?.ai_paused_by;
+      
+      updateConversationOptimistically(ticketId, {
+        ai_enabled: enabled,
+        ai_paused_by: enabled ? null : (user?.id || "agent"),
+      } as any);
+
+      return { ticketId, previousAiEnabled, previousAiPausedBy };
+    },
+    onSuccess: (_, { enabled }) => {
+      toast({ 
+        title: enabled ? "AI Activated" : "AI Paused", 
+        description: enabled ? "AI is now handling this conversation" : "AI has been paused for this conversation" 
+      });
+    },
+    onError: (error, _, context) => {
+      // Revert on error
+      if (context) {
+        updateConversationOptimistically(context.ticketId, {
+          ai_enabled: context.previousAiEnabled,
+          ai_paused_by: context.previousAiPausedBy,
+        } as any);
+      }
+      const message = error instanceof ApiError ? error.message : "AI toggle failed";
       toast({ variant: "destructive", title: "Error", description: message });
     },
   });
@@ -248,10 +322,12 @@ export default function Conversations() {
           isSending={sendMutation.isPending}
           isAgentTyping={sendMutation.isPending}
           hasAgentSent={optimisticMessages.length > 0}
+          isTogglingAi={aiToggleMutation.isPending}
           onAssign={(userId) => selectedTicket && assignMutation.mutate({ ticketId: selectedTicket._id, userId })}
           onResolve={() => selectedTicket && resolveMutation.mutate(selectedTicket._id)}
           onSendMessage={handleSendMessage}
           onTicketUpdate={handleTicketUpdate}
+          onToggleAi={(enabled) => selectedTicket && aiToggleMutation.mutate({ ticketId: selectedTicket._id, enabled })}
         />
       </div>
     </div>

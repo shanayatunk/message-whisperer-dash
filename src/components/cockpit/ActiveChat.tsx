@@ -19,10 +19,12 @@ interface ActiveChatProps {
   isSending: boolean;
   isAgentTyping?: boolean;
   hasAgentSent?: boolean;
+  isTogglingAi?: boolean;
   onAssign: (userId: string) => void;
   onResolve: () => void;
   onSendMessage: (message: string) => void;
   onTicketUpdate?: () => void;
+  onToggleAi?: (enabled: boolean) => void;
 }
 
 interface ConversationStatusBannerProps {
@@ -89,10 +91,12 @@ export function ActiveChat({
   isSending,
   isAgentTyping,
   hasAgentSent,
+  isTogglingAi,
   onAssign,
   onResolve,
   onSendMessage,
   onTicketUpdate,
+  onToggleAi,
 }: ActiveChatProps) {
   const { user } = useAuth();
   const [isReleasing, setIsReleasing] = useState(false);
@@ -150,8 +154,10 @@ export function ActiveChat({
         ticket={ticket}
         isAssigning={isAssigning}
         isResolving={isResolving}
+        isTogglingAi={isTogglingAi}
         onAssign={onAssign}
         onResolve={handleResolve}
+        onToggleAi={onToggleAi}
       />
 
       <ConversationStatusBanner
