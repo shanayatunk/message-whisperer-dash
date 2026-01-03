@@ -20,7 +20,7 @@ export interface Message {
   created_at?: string;
   image_media_id?: string;
   status?: MessageStatus;
-  source?: "customer" | "bot" | "agent" | "system" | "broadcast";
+  source?: "customer" | "bot" | "agent" | "system" | "broadcast" | "ai";
 }
 
 interface ChatMessagesProps {
@@ -161,10 +161,17 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
             // PRIMARY: Use text, FALLBACK: Use content
             const displayContent = msg.text || msg.content || "";
             
-            // Use direction if available, fallback to sender logic
+            // PRIMARY: Use direction if available
+            // FALLBACK: Use source - customer=inbound, ai/bot/agent/system=outbound
             const isInbound = msg.direction 
               ? msg.direction === "inbound" 
-              : msg.sender === "user";
+              : msg.source 
+                ? msg.source === "customer"
+                : msg.sender === "user";
+            
+            // Check if this is an AI/bot message for labeling
+            const isAiOrBot = msg.source === "ai" || msg.source === "bot";
+            
             const time = msg.timestamp || msg.created_at;
             const msgDate = getMessageDate(msg);
             
@@ -260,11 +267,14 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
                           {!isInbound && isBroadcast && (
                             <Megaphone className="h-3 w-3 text-purple-600" />
                           )}
-                          {!isInbound && msg.source === "bot" && (
+                          {!isInbound && isAiOrBot && (
                             <Bot className="h-3 w-3 text-emerald-600" />
                           )}
                           {!isInbound && msg.source === "agent" && (
                             <UserRound className="h-3 w-3 text-emerald-600" />
+                          )}
+                          {!isInbound && !isAiOrBot && !isBroadcast && msg.source !== "agent" && (
+                            <Bot className="h-3 w-3 text-emerald-600" />
                           )}
                           <span className={cn(
                             "text-xs opacity-70",
