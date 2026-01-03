@@ -10,8 +10,11 @@ import { Ticket } from "@/components/cockpit/TicketCard";
 import { Message } from "@/components/cockpit/ChatMessages";
 
 interface ConversationThreadResponse {
-  conversation: ConversationSummary;
-  messages: Message[];
+  success: boolean;
+  data: {
+    conversation: ConversationSummary;
+    messages: Message[];
+  };
 }
 
 export default function Conversations() {
@@ -121,7 +124,7 @@ export default function Conversations() {
       const response = await apiRequest<ConversationThreadResponse>(
         `/api/v1/conversations/${selectedTicket._id}`
       );
-      return response.messages ?? [];
+      return response.data?.messages ?? [];
     },
     enabled: !!selectedTicket,
     refetchInterval: selectedTicket?.status === 'resolved' ? false : 3000,
