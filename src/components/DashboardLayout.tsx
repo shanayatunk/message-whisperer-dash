@@ -14,6 +14,12 @@ const navItems = [
   { path: "/ai-strings", label: "AI & Strings", icon: Settings2 },
 ];
 
+const envLabel = import.meta.env.MODE === "development" ? "STAGING" : "PRODUCTION";
+const envBadgeClass =
+  import.meta.env.MODE === "development"
+    ? "bg-yellow-500 text-black"
+    : "bg-green-600 text-white";
+
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { logout } = useAuth();
@@ -75,6 +81,11 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           </Button>
 
           <div className="flex-1" />
+
+          {/* Environment Badge */}
+          <span className={`px-2 py-1 text-xs font-semibold rounded-full uppercase ${envBadgeClass}`}>
+            {envLabel}
+          </span>
 
           {/* Business Selector */}
           <BusinessSelector />
