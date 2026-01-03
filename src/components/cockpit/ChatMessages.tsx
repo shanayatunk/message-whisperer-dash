@@ -185,9 +185,21 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
             // Check if this is a broadcast message
             const isBroadcast = msg.source === "broadcast";
 
-            // Skip rendering if no content and no image
-            const hasImage = msg.image_media_id || (hasVisualSearch && visualSearchMediaId);
-            if (!displayContent && !hasImage) {
+            // Improved image detection for all WhatsApp formats
+            const imageId =
+              msg.image_media_id ||
+              (msg as any).image?.id ||
+              (msg as any).media_id ||
+              (msg as any).metadata?.media_id ||
+              (hasVisualSearch ? visualSearchMediaId : null);
+            const hasImage = Boolean(imageId);
+
+            // Only skip if message has no text, no content, no media, and no message_type
+            // Always render bot messages even if empty
+            const hasMessageType = Boolean((msg as any).message_type);
+            const shouldSkip = !displayContent && !hasImage && !hasMessageType && msg.sender !== "bot";
+            
+            if (shouldSkip) {
               // Still render date separator if needed
               if (showDateSeparator) {
                 return (
@@ -233,19 +245,11 @@ export function ChatMessages({ messages, isLoading, isError, isAgentTyping }: Ch
                             : "bg-emerald-100 text-emerald-900 rounded-lg rounded-tr-none"
                       )}
                     >
-                      {/* Render image from image_media_id */}
-                      {msg.image_media_id && (
+                      {/* Render image using unified imageId */}
+                      {imageId && (
                         <SecureImage
-                          mediaId={msg.image_media_id}
+                          mediaId={imageId}
                           alt="Message attachment"
-                          className="mb-2 rounded-lg max-w-[200px]"
-                        />
-                      )}
-                      {/* Render image from visual_search pattern */}
-                      {!msg.image_media_id && hasVisualSearch && visualSearchMediaId && (
-                        <SecureImage
-                          mediaId={visualSearchMediaId}
-                          alt="Visual search image"
                           className="mb-2 rounded-lg max-w-[200px]"
                         />
                       )}
