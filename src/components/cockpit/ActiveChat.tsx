@@ -33,9 +33,10 @@ interface ConversationStatusBannerProps {
   canTakeOver?: boolean;
   onRelease?: () => void;
   isReleasing?: boolean;
+  aiEnabled?: boolean;
 }
 
-function ConversationStatusBanner({ status, onTakeOver, canTakeOver, onRelease, isReleasing }: ConversationStatusBannerProps) {
+function ConversationStatusBanner({ status, onTakeOver, canTakeOver, onRelease, isReleasing, aiEnabled }: ConversationStatusBannerProps) {
   if (status === "human_needed") {
     return (
       <div className="w-full px-4 py-2 bg-amber-100 text-amber-800 text-center text-sm flex items-center justify-center">
@@ -59,6 +60,24 @@ function ConversationStatusBanner({ status, onTakeOver, canTakeOver, onRelease, 
     return (
       <div className="w-full px-4 py-2 bg-emerald-100 text-emerald-800 text-center text-sm">
         ✅ This conversation is resolved.
+      </div>
+    );
+  }
+
+  if (aiEnabled === false && status !== "human_needed" && status !== "resolved") {
+    return (
+      <div className="w-full px-4 py-2 bg-gray-200 text-gray-700 text-center text-sm flex items-center justify-center">
+        <span>⏸️ AI is paused. Bot will not reply.</span>
+        {canTakeOver && onTakeOver && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onTakeOver}
+            className="ml-4 h-7 text-xs bg-background hover:bg-accent"
+          >
+            ✋ Take Over
+          </Button>
+        )}
       </div>
     );
   }
@@ -166,6 +185,7 @@ export function ActiveChat({
         canTakeOver={(ticket.status === "open" || ticket.status === "pending") && !!user}
         onRelease={ticket.status === "human_needed" ? handleRelease : undefined}
         isReleasing={isReleasing}
+        aiEnabled={ticket.ai_enabled}
       />
 
       <ChatMessages
