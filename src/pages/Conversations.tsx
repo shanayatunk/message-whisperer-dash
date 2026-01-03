@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiRequest, ApiError, getConversations, ConversationSummary, APIResponse } from "@/lib/api";
+import { apiRequest, ApiError, getConversations, ConversationSummary } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,13 +8,49 @@ import { TicketQueue } from "@/components/cockpit/TicketQueue";
 import { ActiveChat } from "@/components/cockpit/ActiveChat";
 import { Ticket } from "@/components/cockpit/TicketCard";
 import { Message } from "@/components/cockpit/ChatMessages";
+import { Bug } from "lucide-react"; // Icon for debug
 
-interface ConversationThreadData {
-  conversation: ConversationSummary;
-  messages: Message[];
+// --- SMART EXTRACTOR LOGIC ---
+// This function hunts for the message array in any likely API structure
+function extractMessagesFromResponse(response: any): { messages: Message[], source: string, raw: any } {
+  let msgs: any[] = [];
+  let source = "not_found";
+
+  // Case 1: Standard SaaS Response { success: true, data: { messages: [...] } }
+  if (Array.isArray(response?.data?.messages)) {
+    msgs = response.data.messages;
+    source = "response.data.messages";
+  }
+  // Case 2: Direct Object { messages: [...] }
+  else if (Array.isArray(response?.messages)) {
+    msgs = response.messages;
+    source = "response.messages";
+  }
+  // Case 3: Direct Array [...]
+  else if (Array.isArray(response)) {
+    msgs = response;
+    source = "root_array";
+  }
+  // Case 4: Envelope with data array { data: [...] }
+  else if (Array.isArray(response?.data)) {
+    msgs = response.data;
+    source = "response.data";
+  }
+  // Case 5: Deeply nested items (Pagination) { data: { items: [...] } }
+  else if (Array.isArray(response?.data?.items)) {
+    msgs = response.data.items;
+    source = "response.data.items";
+  }
+
+  // NORMALIZE: Ensure every message has 'text' so the UI doesn't break
+  const normalized = msgs.map(m => ({
+    ...m,
+    text: m.text || m.content || m.body || "", // Ensure text exists
+    timestamp: m.timestamp || m.created_at || new Date().toISOString() // Ensure timestamp exists
+  }));
+
+  return { messages: normalized, source, raw: response };
 }
-
-type ConversationThreadResponse = APIResponse<ConversationThreadData> | ConversationThreadData;
 
 export default function Conversations() {
   const { toast } = useToast();
@@ -25,6 +61,11 @@ export default function Conversations() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [filter, setFilter] = useState("all");
   const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
+  
+  // DEBUG STATE
+  const [showDebug, setShowDebug] = useState(false);
+  const [lastApiResponse, setLastApiResponse] = useState<any>(null);
+  const [extractionSource, setExtractionSource] = useState<string>("");
 
   // Cursor pagination state
   const [allConversations, setAllConversations] = useState<ConversationSummary[]>([]);
@@ -35,7 +76,7 @@ export default function Conversations() {
   const [isFetching, setIsFetching] = useState(false);
 
   // Convert ConversationSummary to Ticket format for compatibility
-  const allTickets: Ticket[] = allConversations.map((conv) => ({
+  const ticketsData: Ticket[] = allConversations.map((conv) => ({
     _id: conv.id,
     phone: conv.phone,
     preview: conv.preview,
@@ -47,32 +88,14 @@ export default function Conversations() {
     assigned_to_username: conv.assigned_to_username,
   }));
 
-  // Apply client-side filtering based on filter value
-  const ticketsData: Ticket[] = allTickets.filter((ticket) => {
-    if (filter === "all") {
-      // "Needs Attention" (Human): status=open AND (ai_enabled=false OR ai_paused_by != null)
-      return ticket.status === "open" && (ticket.ai_enabled === false || ticket.ai_paused_by != null);
-    }
-    if (filter === "pending") {
-      // "Bot Active": status=open AND ai_enabled=true AND ai_paused_by === null
-      return ticket.status === "open" && ticket.ai_enabled === true && ticket.ai_paused_by === null;
-    }
-    if (filter === "resolved") {
-      // "Resolved": status=resolved
-      return ticket.status === "resolved";
-    }
-    return true;
-  });
-
-  // Initial fetch - always fetch all open/resolved, filtering is done client-side
+  // Initial fetch and filter change
   const fetchInitial = async () => {
     setIsLoadingInitial(true);
     setIsError(false);
     setIsFetching(true);
     try {
-      // Fetch based on resolved vs open status (API level)
-      const statusParam = filter === "resolved" ? "resolved" : "open";
-      const response = await getConversations(null, 50, statusParam);
+      const statusParam = filter !== "all" ? filter : undefined;
+      const response = await getConversations(null, 20, statusParam);
       setAllConversations(response.data);
       setNextCursor(response.next_cursor);
     } catch {
@@ -88,8 +111,8 @@ export default function Conversations() {
     if (!nextCursor || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      const statusParam = filter === "resolved" ? "resolved" : "open";
-      const response = await getConversations(nextCursor, 50, statusParam);
+      const statusParam = filter !== "all" ? filter : undefined;
+      const response = await getConversations(nextCursor, 20, statusParam);
       setAllConversations((prev) => [...prev, ...response.data]);
       setNextCursor(response.next_cursor);
     } catch {
@@ -120,27 +143,27 @@ export default function Conversations() {
     queryKey: ["messages", selectedTicket?._id],
     queryFn: async () => {
       if (!selectedTicket) return [];
+      
+      try {
+        // Fetch raw response
+        const rawResponse = await apiRequest<any>(
+          `/api/v1/conversations/${selectedTicket._id}`
+        );
 
-      const raw = await apiRequest<ConversationThreadResponse>(
-        `/api/v1/conversations/${selectedTicket._id}`
-      );
+        // Use Smart Extractor
+        const { messages, source, raw } = extractMessagesFromResponse(rawResponse);
+        
+        // Save for Debug Panel
+        setLastApiResponse(raw);
+        setExtractionSource(source);
+        
+        console.log(`[Cockpit] Extracted ${messages.length} messages from ${source}`);
+        return messages;
 
-      // Handle both wrapped ({ success, data }) and unwrapped responses.
-      const payload: any = (raw as any)?.data ?? raw;
-      const messages: any =
-        payload?.messages ??
-        payload?.data?.messages ??
-        payload?.messages?.data ??
-        payload?.data?.messages?.data ??
-        [];
-
-      const shouldLog = import.meta.env.DEV || sessionStorage.getItem("debug_api") === "1";
-      if (shouldLog) {
-        console.log("[Conversations] thread raw=", raw);
-        console.log("[Conversations] thread messages length=", Array.isArray(messages) ? messages.length : "not-array");
+      } catch (err) {
+        console.error("[Cockpit] Failed to fetch thread:", err);
+        throw err;
       }
-
-      return Array.isArray(messages) ? messages : [];
     },
     enabled: !!selectedTicket,
     refetchInterval: selectedTicket?.status === 'resolved' ? false : 3000,
@@ -174,7 +197,6 @@ export default function Conversations() {
         body: JSON.stringify({ user_id: userId }),
       }),
     onMutate: async ({ ticketId, userId }) => {
-      // Optimistic update - show agent ID immediately
       updateConversationOptimistically(ticketId, {
         assigned_to: userId,
         assigned_to_username: userId.length > 12 ? undefined : userId,
@@ -184,7 +206,6 @@ export default function Conversations() {
       toast({ title: "Assigned", description: "Ticket assigned successfully" });
     },
     onError: (error, { ticketId }) => {
-      // Revert on error
       updateConversationOptimistically(ticketId, { assigned_to: null, assigned_to_username: null } as any);
       const message = error instanceof ApiError ? error.message : "Assignment failed";
       toast({ variant: "destructive", title: "Error", description: message });
@@ -198,19 +219,15 @@ export default function Conversations() {
         method: "PUT",
       }),
     onMutate: async (ticketId) => {
-      // Save current state for rollback
       const previousConversations = [...allConversations];
       const previousSelectedTicket = selectedTicket;
 
-      // If filtering by 'open', remove from list immediately
       if (filter === "open") {
         setAllConversations((prev) => prev.filter((c) => c.id !== ticketId));
       } else {
-        // Otherwise just update status
         updateConversationOptimistically(ticketId, { status: "resolved" } as any);
       }
 
-      // Auto-select next ticket
       const currentIndex = ticketsData?.findIndex((t) => t._id === ticketId) ?? -1;
       const nextTicket = ticketsData?.[currentIndex + 1] || ticketsData?.[0] || null;
       if (nextTicket && nextTicket._id !== ticketId) {
@@ -226,7 +243,6 @@ export default function Conversations() {
       toast({ title: "Resolved", description: "Ticket marked as resolved" });
     },
     onError: (error, ticketId, context) => {
-      // Revert on error
       if (context) {
         setAllConversations(context.previousConversations);
         setSelectedTicket(context.previousSelectedTicket);
@@ -244,7 +260,6 @@ export default function Conversations() {
         body: JSON.stringify({ enabled }),
       }),
     onMutate: async ({ ticketId, enabled }) => {
-      // Optimistic update - toggle AI state immediately
       const previousAiEnabled = allConversations.find((c) => c.id === ticketId)?.ai_enabled;
       const previousAiPausedBy = (allConversations.find((c) => c.id === ticketId) as any)?.ai_paused_by;
       
@@ -262,7 +277,6 @@ export default function Conversations() {
       });
     },
     onError: (error, _, context) => {
-      // Revert on error
       if (context) {
         updateConversationOptimistically(context.ticketId, {
           ai_enabled: context.previousAiEnabled,
@@ -282,17 +296,15 @@ export default function Conversations() {
         body: JSON.stringify({ message }),
       }),
     onMutate: async ({ message }) => {
-      // Optimistic update
       const newMessage: Message = {
         id: `optimistic-${Date.now()}`,
         content: message,
+        text: message, // Ensure text is present
         sender: "agent",
         timestamp: new Date().toISOString(),
+        status: "sending"
       };
       setOptimisticMessages((prev) => [...prev, newMessage]);
-    },
-    onSuccess: () => {
-      // Rely on optimistic update only - no refetch to prevent double bubble
     },
     onError: (error) => {
       setOptimisticMessages([]);
@@ -304,6 +316,9 @@ export default function Conversations() {
   const handleSelectTicket = (ticket: Ticket) => {
     setSelectedTicket(ticket);
     setOptimisticMessages([]);
+    // Reset debug info on new selection
+    setLastApiResponse(null);
+    setExtractionSource("");
   };
 
   const handleSendMessage = (message: string) => {
@@ -313,7 +328,6 @@ export default function Conversations() {
 
   const handleTicketUpdate = async () => {
     await fetchInitial();
-    // Update selectedTicket with fresh data
     if (selectedTicket) {
       const updatedTicket = allConversations.find((c) => c.id === selectedTicket._id);
       if (updatedTicket) {
@@ -329,7 +343,7 @@ export default function Conversations() {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex">
+    <div className="h-[calc(100vh-4rem)] flex relative">
       {/* Left Sidebar - 30% */}
       <div className="w-[30%] min-w-[280px] max-w-[400px]">
         <TicketQueue
@@ -349,7 +363,7 @@ export default function Conversations() {
       </div>
 
       {/* Right Panel - 70% */}
-      <div className="flex-1">
+      <div className="flex-1 relative">
         <ActiveChat
           ticket={selectedTicket}
           messages={allMessages}
@@ -367,6 +381,41 @@ export default function Conversations() {
           onTicketUpdate={handleTicketUpdate}
           onToggleAi={(enabled) => selectedTicket && aiToggleMutation.mutate({ ticketId: selectedTicket._id, enabled })}
         />
+
+        {/* --- DEBUG OVERLAY (Bottom Right) --- */}
+        {selectedTicket && (
+          <div className="absolute bottom-4 right-4 z-50 flex flex-col items-end gap-2 pointer-events-none">
+             {/* Toggle Button (Clickable) */}
+             <div 
+               onClick={() => setShowDebug(!showDebug)}
+               className="pointer-events-auto bg-black/80 hover:bg-black text-white p-2 rounded-full cursor-pointer shadow-lg transition-all"
+               title="Toggle Data Debugger"
+             >
+               <Bug className="w-5 h-5" />
+             </div>
+
+             {/* Debug Panel */}
+             {showDebug && (
+                <div className="pointer-events-auto w-[400px] h-[300px] bg-black/90 text-green-400 p-4 rounded-lg shadow-2xl overflow-auto text-xs font-mono border border-green-500/30 backdrop-blur-md">
+                   <div className="font-bold border-b border-green-500/30 pb-2 mb-2 flex justify-between">
+                     <span>API RESPONSE INSPECTOR</span>
+                     <span className="text-white/50">Src: {extractionSource}</span>
+                   </div>
+                   
+                   <div className="mb-2">
+                      <span className="text-white">Messages Found:</span> {allMessages.length}
+                   </div>
+
+                   <div className="mb-2">
+                      <span className="text-white">Raw API Payload:</span>
+                      <pre className="mt-1 text-[10px] text-gray-300 whitespace-pre-wrap break-all">
+                        {lastApiResponse ? JSON.stringify(lastApiResponse, null, 2) : "Waiting for response..."}
+                      </pre>
+                   </div>
+                </div>
+             )}
+          </div>
+        )}
       </div>
     </div>
   );
