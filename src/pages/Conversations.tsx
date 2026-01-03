@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiRequest, ApiError, getConversations, ConversationSummary } from "@/lib/api";
+import { apiRequest, ApiError, getConversations, ConversationSummary, APIResponse } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,13 +9,12 @@ import { ActiveChat } from "@/components/cockpit/ActiveChat";
 import { Ticket } from "@/components/cockpit/TicketCard";
 import { Message } from "@/components/cockpit/ChatMessages";
 
-interface ConversationThreadResponse {
-  success: boolean;
-  data: {
-    conversation: ConversationSummary;
-    messages: Message[];
-  };
+interface ConversationThreadData {
+  conversation: ConversationSummary;
+  messages: Message[];
 }
+
+type ConversationThreadResponse = APIResponse<ConversationThreadData> | ConversationThreadData;
 
 export default function Conversations() {
   const { toast } = useToast();
@@ -121,10 +120,27 @@ export default function Conversations() {
     queryKey: ["messages", selectedTicket?._id],
     queryFn: async () => {
       if (!selectedTicket) return [];
-      const response = await apiRequest<ConversationThreadResponse>(
+
+      const raw = await apiRequest<ConversationThreadResponse>(
         `/api/v1/conversations/${selectedTicket._id}`
       );
-      return response.data?.messages ?? [];
+
+      // Handle both wrapped ({ success, data }) and unwrapped responses.
+      const payload: any = (raw as any)?.data ?? raw;
+      const messages: any =
+        payload?.messages ??
+        payload?.data?.messages ??
+        payload?.messages?.data ??
+        payload?.data?.messages?.data ??
+        [];
+
+      const shouldLog = import.meta.env.DEV || sessionStorage.getItem("debug_api") === "1";
+      if (shouldLog) {
+        console.log("[Conversations] thread raw=", raw);
+        console.log("[Conversations] thread messages length=", Array.isArray(messages) ? messages.length : "not-array");
+      }
+
+      return Array.isArray(messages) ? messages : [];
     },
     enabled: !!selectedTicket,
     refetchInterval: selectedTicket?.status === 'resolved' ? false : 3000,
