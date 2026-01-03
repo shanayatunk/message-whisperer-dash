@@ -33,7 +33,7 @@ export default function Conversations() {
   const [isFetching, setIsFetching] = useState(false);
 
   // Convert ConversationSummary to Ticket format for compatibility
-  const ticketsData: Ticket[] = allConversations.map((conv) => ({
+  const allTickets: Ticket[] = allConversations.map((conv) => ({
     _id: conv.id,
     phone: conv.phone,
     preview: conv.preview,
@@ -45,14 +45,32 @@ export default function Conversations() {
     assigned_to_username: conv.assigned_to_username,
   }));
 
-  // Initial fetch and filter change
+  // Apply client-side filtering based on filter value
+  const ticketsData: Ticket[] = allTickets.filter((ticket) => {
+    if (filter === "all") {
+      // "Needs Attention" (Human): status=open AND (ai_enabled=false OR ai_paused_by != null)
+      return ticket.status === "open" && (ticket.ai_enabled === false || ticket.ai_paused_by != null);
+    }
+    if (filter === "pending") {
+      // "Bot Active": status=open AND ai_enabled=true AND ai_paused_by === null
+      return ticket.status === "open" && ticket.ai_enabled === true && ticket.ai_paused_by === null;
+    }
+    if (filter === "resolved") {
+      // "Resolved": status=resolved
+      return ticket.status === "resolved";
+    }
+    return true;
+  });
+
+  // Initial fetch - always fetch all open/resolved, filtering is done client-side
   const fetchInitial = async () => {
     setIsLoadingInitial(true);
     setIsError(false);
     setIsFetching(true);
     try {
-      const statusParam = filter !== "all" ? filter : undefined;
-      const response = await getConversations(null, 20, statusParam);
+      // Fetch based on resolved vs open status (API level)
+      const statusParam = filter === "resolved" ? "resolved" : "open";
+      const response = await getConversations(null, 50, statusParam);
       setAllConversations(response.data);
       setNextCursor(response.next_cursor);
     } catch {
@@ -68,8 +86,8 @@ export default function Conversations() {
     if (!nextCursor || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      const statusParam = filter !== "all" ? filter : undefined;
-      const response = await getConversations(nextCursor, 20, statusParam);
+      const statusParam = filter === "resolved" ? "resolved" : "open";
+      const response = await getConversations(nextCursor, 50, statusParam);
       setAllConversations((prev) => [...prev, ...response.data]);
       setNextCursor(response.next_cursor);
     } catch {
