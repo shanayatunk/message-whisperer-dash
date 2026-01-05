@@ -39,12 +39,29 @@ function extractMessagesFromResponse(response: any): { messages: Message[]; sour
     source = "response.conversation.messages";
   }
 
-  // Normalize: ensure text and timestamp exist
-  const normalized = msgs.map((m) => ({
-    ...m,
-    text: m.text || m.content || m.body || "",
-    timestamp: m.timestamp || m.created_at || new Date().toISOString(),
-  }));
+  // Normalize: ensure text, timestamp, and sender exist
+  const normalized = msgs.map((m) => {
+    // Derive sender from various API formats
+    let sender = m.sender;
+    if (!sender) {
+      if (m.direction === "inbound") sender = "user";
+      else if (m.direction === "outbound") {
+        // Determine if bot or agent based on source
+        sender = m.source === "agent" ? "agent" : "bot";
+      }
+      else if (m.source === "customer") sender = "user";
+      else if (m.source === "bot" || m.source === "ai") sender = "bot";
+      else if (m.source === "agent") sender = "agent";
+      else sender = "bot"; // Default fallback
+    }
+    
+    return {
+      ...m,
+      sender,
+      text: m.text || m.content || m.body || "",
+      timestamp: m.timestamp || m.created_at || new Date().toISOString(),
+    };
+  });
 
   return { messages: normalized, source, raw: response };
 }
