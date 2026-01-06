@@ -192,3 +192,29 @@ export async function getConversations(
   return response.data;
 }
 
+// Broadcast Groups
+export interface BroadcastGroup {
+  _id: string;
+  name: string;
+  phone_numbers: string[];
+  created_at: string;
+}
+
+export interface BroadcastGroupCreate {
+  name: string;
+  phone_numbers: string[];
+}
+
+export async function getBroadcastGroups(): Promise<BroadcastGroup[]> {
+  const response = await apiRequest<APIResponse<BroadcastGroup[]>>("/api/v1/broadcasts/groups");
+  return response.data;
+}
+
+export async function createBroadcastGroup(name: string, phones: string[]): Promise<BroadcastGroup> {
+  const response = await apiRequest<APIResponse<BroadcastGroup>>("/api/v1/broadcasts/groups", {
+    method: "POST",
+    body: JSON.stringify({ name, phone_numbers: phones }),
+  });
+  return response.data;
+}
+

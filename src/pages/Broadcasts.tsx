@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { apiRequest, ApiError } from "@/lib/api";
+import { apiRequest, ApiError, getBroadcastGroups, BroadcastGroup } from "@/lib/api";
+import { AudienceDialog } from "@/components/broadcast/AudienceDialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -101,6 +102,9 @@ export default function Broadcasts() {
   const [history, setHistory] = useState<BroadcastJob[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
+  // Custom groups state
+  const [groups, setGroups] = useState<BroadcastGroup[]>([]);
+
   // Form state
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [selectedAudience, setSelectedAudience] = useState("");
@@ -132,6 +136,7 @@ export default function Broadcasts() {
     if (!businessId) return;
     fetchConfig();
     fetchHistory();
+    loadGroups();
 
     // Auto-refresh history every 10 seconds for real-time updates
     const interval = setInterval(() => {
@@ -140,6 +145,15 @@ export default function Broadcasts() {
 
     return () => clearInterval(interval);
   }, [businessId]);
+
+  const loadGroups = async () => {
+    try {
+      const data = await getBroadcastGroups();
+      setGroups(data);
+    } catch (error) {
+      console.error("Failed to load broadcast groups:", error);
+    }
+  };
 
   const fetchConfig = async () => {
     setConfigLoading(true);
@@ -617,9 +631,12 @@ export default function Broadcasts() {
 
                 {/* Audience Selector */}
                 <div className="space-y-2">
-                  <Label htmlFor="audience" className="text-sm font-medium">
-                    Audience
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="audience" className="text-sm font-medium">
+                      Audience
+                    </Label>
+                    <AudienceDialog onGroupCreated={loadGroups} />
+                  </div>
                   <Select value={selectedAudience} onValueChange={setSelectedAudience}>
                     <SelectTrigger id="audience">
                       <SelectValue placeholder="Select an audience" />
@@ -633,6 +650,15 @@ export default function Broadcasts() {
                               ({a.count.toLocaleString()} users)
                             </span>
                           )}
+                        </SelectItem>
+                      ))}
+                      {/* Custom Groups */}
+                      {groups.map((g) => (
+                        <SelectItem key={g._id} value={`group:${g._id}`}>
+                          <span>{g.name}</span>
+                          <span className="ml-2 text-muted-foreground text-xs">
+                            ({g.phone_numbers.length} numbers)
+                          </span>
                         </SelectItem>
                       ))}
                       {/* Smart Segment: Engaged */}
