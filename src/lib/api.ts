@@ -206,8 +206,8 @@ export interface BroadcastGroupCreate {
 }
 
 export async function getBroadcastGroups(): Promise<BroadcastGroup[]> {
-  const response = await apiRequest<APIResponse<BroadcastGroup[]>>("/api/v1/broadcasts/groups");
-  return response.data;
+  const response = await apiRequest<APIResponse<{ groups: BroadcastGroup[] }>>("/api/v1/broadcasts/groups");
+  return response.data.groups;
 }
 
 export async function createBroadcastGroup(name: string, phones: string[]): Promise<BroadcastGroup> {
