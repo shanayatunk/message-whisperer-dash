@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Loader2, Bot, Pause, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface MessageInputProps {
   onSend: (message: string) => void;
@@ -23,6 +24,7 @@ export function MessageInput({
 }: MessageInputProps) {
   const [message, setMessage] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isMobile = useIsMobile();
 
   // Auto-resize logic for textarea
   useEffect(() => {
@@ -56,7 +58,10 @@ export function MessageInput({
   const showAiPaused = aiPausedBy !== null || hasAgentSent;
 
   return (
-    <div className="p-3 border-t border-border bg-white dark:bg-zinc-900">
+    <div className={cn(
+      "p-3 border-t border-border bg-white dark:bg-zinc-900",
+      isMobile && "sticky bottom-0 z-10"
+    )}>
       {/* AI Status Indicator */}
       <div className="mb-2 px-1 flex items-center justify-between">
         {isAiActive ? (
