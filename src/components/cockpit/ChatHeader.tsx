@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, Loader2, Bot } from "lucide-react";
+import { CheckCircle, Loader2, Bot, ArrowLeft } from "lucide-react";
 import { Ticket } from "./TicketCard";
 import { AgentSelector } from "./AgentSelector";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ChatHeaderProps {
   ticket: Ticket;
@@ -13,6 +14,7 @@ interface ChatHeaderProps {
   onAssign: (userId: string) => void;
   onResolve: () => void;
   onToggleAi?: (enabled: boolean) => void;
+  onBack?: () => void;
 }
 
 export function ChatHeader({
@@ -23,17 +25,26 @@ export function ChatHeader({
   onAssign,
   onResolve,
   onToggleAi,
+  onBack,
 }: ChatHeaderProps) {
+  const isMobile = useIsMobile();
   const isAiActive = ticket.ai_enabled === true && ticket.ai_paused_by === null;
 
   return (
     <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30">
-      <div>
-        <div className="font-mono text-sm font-medium text-foreground">
-          {ticket.customer_phone || ticket.phone}
-        </div>
-        <div className="text-xs text-muted-foreground">
-          Ticket: {ticket._id.slice(-8)}
+      <div className="flex items-center">
+        {isMobile && onBack && (
+          <Button variant="ghost" size="icon" onClick={onBack} className="mr-2">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        )}
+        <div>
+          <div className="font-mono text-sm font-medium text-foreground">
+            {ticket.customer_phone || ticket.phone}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Ticket: {ticket._id.slice(-8)}
+          </div>
         </div>
       </div>
 
