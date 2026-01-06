@@ -9,6 +9,7 @@ import { ActiveChat } from "@/components/cockpit/ActiveChat";
 import { Ticket } from "@/components/cockpit/TicketCard";
 import { Message } from "@/components/cockpit/ChatMessages";
 import { Bug } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Smart extractor: finds messages in various API response structures
 function extractMessagesFromResponse(response: any): { messages: Message[]; source: string; raw: any } {
@@ -71,6 +72,7 @@ export default function Conversations() {
   const { user } = useAuth();
   const { businessId } = useBusiness();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [filter, setFilter] = useState("all");
@@ -384,6 +386,83 @@ export default function Conversations() {
     }
   };
 
+  // Mobile: single-pane layout
+  if (isMobile) {
+    return (
+      <div className="h-[calc(100vh-4rem)] flex">
+        {selectedTicket ? (
+          <div className="w-full relative">
+            <ActiveChat
+              ticket={selectedTicket}
+              messages={allMessages}
+              isLoadingMessages={isLoadingMessages}
+              isMessagesError={isMessagesError}
+              isAssigning={assignMutation.isPending}
+              isResolving={resolveMutation.isPending}
+              isSending={sendMutation.isPending}
+              isAgentTyping={sendMutation.isPending}
+              hasAgentSent={optimisticMessages.length > 0}
+              isTogglingAi={aiToggleMutation.isPending}
+              onAssign={(userId) => selectedTicket && assignMutation.mutate({ ticketId: selectedTicket._id, userId })}
+              onResolve={() => selectedTicket && resolveMutation.mutate(selectedTicket._id)}
+              onSendMessage={handleSendMessage}
+              onTicketUpdate={handleTicketUpdate}
+              onToggleAi={(enabled) => selectedTicket && aiToggleMutation.mutate({ ticketId: selectedTicket._id, enabled })}
+              onBack={() => setSelectedTicket(null)}
+            />
+
+            {/* Debug Overlay */}
+            <div className="absolute bottom-4 right-4 z-50 flex flex-col items-end gap-2 pointer-events-none">
+              <button
+                onClick={() => setShowDebug(!showDebug)}
+                className="pointer-events-auto bg-primary/80 hover:bg-primary text-primary-foreground p-2 rounded-full cursor-pointer shadow-lg transition-all"
+                title="Toggle Data Debugger"
+              >
+                <Bug className="h-5 w-5" />
+              </button>
+
+              {showDebug && (
+                <div className="pointer-events-auto bg-card border border-border rounded-lg shadow-xl p-4 max-w-md max-h-96 overflow-auto text-sm">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-semibold text-foreground">API Response Inspector</span>
+                    <span className="text-xs text-muted-foreground">Src: {extractionSource || "n/a"}</span>
+                  </div>
+                  <div className="mb-2 text-foreground">
+                    Messages Found: <span className="font-bold">{allMessages.length}</span>
+                  </div>
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Raw API Payload:</span>
+                    <pre className="mt-1 p-2 bg-muted rounded text-muted-foreground overflow-auto max-h-48">
+                      {lastApiResponse ? JSON.stringify(lastApiResponse, null, 2).slice(0, 2000) : "Waiting for response..."}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="w-full">
+            <TicketQueue
+              tickets={ticketsData}
+              isLoading={isLoadingInitial}
+              isError={isError}
+              isFetching={isFetching}
+              selectedTicketId={selectedTicket?._id ?? null}
+              filter={filter}
+              onFilterChange={setFilter}
+              onSelectTicket={handleSelectTicket}
+              onRefresh={handleRefresh}
+              hasMore={nextCursor !== null}
+              isLoadingMore={isLoadingMore}
+              onLoadMore={handleLoadMore}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Desktop: split-pane layout
   return (
     <div className="h-[calc(100vh-4rem)] flex">
       {/* Left Sidebar - 30% */}
