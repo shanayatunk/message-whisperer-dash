@@ -25,6 +25,7 @@ interface ActiveChatProps {
   onSendMessage: (message: string) => void;
   onTicketUpdate?: () => void;
   onToggleAi?: (enabled: boolean) => void;
+  onBack?: () => void;
 }
 
 interface ConversationStatusBannerProps {
@@ -119,6 +120,7 @@ export function ActiveChat({
   onSendMessage,
   onTicketUpdate,
   onToggleAi,
+  onBack,
 }: ActiveChatProps) {
   const { user } = useAuth();
   const [isReleasing, setIsReleasing] = useState(false);
@@ -181,6 +183,7 @@ export function ActiveChat({
         onAssign={onAssign}
         onResolve={handleResolve}
         onToggleAi={onToggleAi}
+        onBack={onBack}
       />
 
       <ConversationStatusBanner
