@@ -718,14 +718,39 @@ function KnowledgeEntryField({
 }: KnowledgeEntryFieldProps) {
   const [triggerInput, setTriggerInput] = useState("");
 
+  // Add multiple triggers at once, splitting by comma
+  const addMultipleTriggers = (text: string) => {
+    const triggers = text.split(",").map(t => t.trim()).filter(t => t.length > 0);
+    triggers.forEach(trigger => onAddTrigger(trigger));
+  };
+
+  // Commit the current input as a trigger
+  const commitTrigger = () => {
+    if (triggerInput.trim()) {
+      addMultipleTriggers(triggerInput);
+      setTriggerInput("");
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
-      if (triggerInput.trim()) {
-        onAddTrigger(triggerInput.trim());
-        setTriggerInput("");
-      }
+      commitTrigger();
     }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pastedText = e.clipboardData.getData("text");
+    // If pasted text contains commas, handle it specially
+    if (pastedText.includes(",")) {
+      e.preventDefault();
+      addMultipleTriggers(pastedText);
+    }
+  };
+
+  const handleBlur = () => {
+    // Auto-add any remaining text when user clicks away
+    commitTrigger();
   };
 
   return (
@@ -790,10 +815,12 @@ function KnowledgeEntryField({
           ))}
         </div>
         <Input
-          placeholder="Type keyword and press Enter..."
+          placeholder="Type keyword and press Enter, comma, or paste a list..."
           value={triggerInput}
           onChange={(e) => setTriggerInput(e.target.value)}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          onBlur={handleBlur}
           disabled={!entry.enabled}
           className="h-8 text-sm"
         />
