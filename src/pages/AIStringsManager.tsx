@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { apiRequest } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Loader2, RotateCcw, Save, Search, Brain, Zap, BookOpen } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { 
+  Loader2, RotateCcw, Save, Search, Brain, Zap, BookOpen, Database,
+  Instagram, Facebook, Youtube, Truck, RotateCw, ArrowRightLeft, MapPin, Clock
+} from "lucide-react";
 import { toast } from "sonner";
 import StringPreviewCard from "@/components/strings/StringPreviewCard";
 
@@ -25,8 +29,20 @@ interface StringsResponse {
   strings: StringItem[];
 }
 
+interface KnowledgeBaseConfig {
+  social_media: { instagram: string; facebook: string; youtube: string };
+  policies: { shipping: string; returns: string; exchanges: string };
+  locations: { store_address: string; operating_hours: string };
+}
+
 const PERSONA_KEYS = ["FEELORI_SYSTEM_PROMPT", "GOLDEN_SYSTEM_PROMPT"];
 const QUICK_RESPONSE_PREFIXES = ["ERROR_", "HUMAN_", "NO_ORDERS_", "ORDER_NUMBER_", "WELCOME_"];
+
+const DEFAULT_KNOWLEDGE_BASE: KnowledgeBaseConfig = {
+  social_media: { instagram: "", facebook: "", youtube: "" },
+  policies: { shipping: "", returns: "", exchanges: "" },
+  locations: { store_address: "", operating_hours: "" },
+};
 
 // Convert SNAKE_CASE key to human-readable label
 const formatKeyToLabel = (key: string): string => {
@@ -59,24 +75,80 @@ export default function AIStringsManager() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeStringKey, setActiveStringKey] = useState<string | null>(null);
   const [selectedBusiness, setSelectedBusiness] = useState<"feelori" | "golden">("feelori");
+  
+  // Knowledge Base state
+  const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBaseConfig | null>(null);
+  const [originalKnowledgeBase, setOriginalKnowledgeBase] = useState<KnowledgeBaseConfig | null>(null);
+  const [savingKB, setSavingKB] = useState(false);
 
   useEffect(() => {
-    fetchStrings();
-  }, []);
+    fetchData();
+  }, [selectedBusiness]);
 
-  const fetchStrings = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await apiRequest<{ data: { strings: StringItem[] } }>("/api/v1/admin/strings");
-      setStrings(response.data?.strings || []);
-      setOriginalStrings(response.data?.strings || []);
+      // Fetch strings
+      const stringsResponse = await apiRequest<{ data: { strings: StringItem[] } }>("/api/v1/admin/strings");
+      setStrings(stringsResponse.data?.strings || []);
+      setOriginalStrings(stringsResponse.data?.strings || []);
+      
+      // Fetch knowledge base
+      try {
+        const kbResponse = await apiRequest<{ data: KnowledgeBaseConfig }>(`/api/settings/knowledge-base/${selectedBusiness}`);
+        const kbData = kbResponse.data || DEFAULT_KNOWLEDGE_BASE;
+        setKnowledgeBase(kbData);
+        setOriginalKnowledgeBase(kbData);
+      } catch {
+        // If knowledge base doesn't exist yet, use defaults
+        setKnowledgeBase({ ...DEFAULT_KNOWLEDGE_BASE });
+        setOriginalKnowledgeBase({ ...DEFAULT_KNOWLEDGE_BASE });
+      }
     } catch (error) {
-      toast.error("Failed to load strings");
+      toast.error("Failed to load data");
       console.error(error);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleSaveKnowledgeBase = async () => {
+    if (!knowledgeBase) return;
+    
+    setSavingKB(true);
+    try {
+      await apiRequest(`/api/settings/knowledge-base/${selectedBusiness}`, {
+        method: "PATCH",
+        body: JSON.stringify(knowledgeBase),
+      });
+      setOriginalKnowledgeBase({ ...knowledgeBase });
+      toast.success("Knowledge Base saved successfully");
+    } catch (error) {
+      toast.error("Failed to save Knowledge Base");
+      console.error(error);
+    } finally {
+      setSavingKB(false);
+    }
+  };
+
+  const updateKnowledgeBase = <K extends keyof KnowledgeBaseConfig>(
+    section: K,
+    field: keyof KnowledgeBaseConfig[K],
+    value: string
+  ) => {
+    if (!knowledgeBase) return;
+    setKnowledgeBase({
+      ...knowledgeBase,
+      [section]: {
+        ...knowledgeBase[section],
+        [field]: value,
+      },
+    });
+  };
+
+  const hasKBChanges = useMemo(() => {
+    return JSON.stringify(knowledgeBase) !== JSON.stringify(originalKnowledgeBase);
+  }, [knowledgeBase, originalKnowledgeBase]);
 
   const handleValueChange = (key: string, newValue: string) => {
     setStrings((prev) =>
@@ -229,21 +301,35 @@ export default function AIStringsManager() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="personas" className="flex-1">
+      <Tabs defaultValue="templates" className="flex-1">
         <TabsList className="mb-4">
-          <TabsTrigger value="personas" className="gap-2">
-            <Brain className="h-4 w-4" />
-            AI Personas
-          </TabsTrigger>
-          <TabsTrigger value="quick" className="gap-2">
-            <Zap className="h-4 w-4" />
-            Quick Responses
-          </TabsTrigger>
-          <TabsTrigger value="informational" className="gap-2">
+          <TabsTrigger value="templates" className="gap-2">
             <BookOpen className="h-4 w-4" />
-            Informational Templates
+            Response Templates
+          </TabsTrigger>
+          <TabsTrigger value="knowledge" className="gap-2">
+            <Database className="h-4 w-4" />
+            Knowledge & Facts
           </TabsTrigger>
         </TabsList>
+
+        {/* Tab 1: Response Templates */}
+        <TabsContent value="templates" className="space-y-6">
+          <Tabs defaultValue="personas">
+            <TabsList className="mb-4">
+              <TabsTrigger value="personas" className="gap-2">
+                <Brain className="h-4 w-4" />
+                AI Personas
+              </TabsTrigger>
+              <TabsTrigger value="quick" className="gap-2">
+                <Zap className="h-4 w-4" />
+                Quick Responses
+              </TabsTrigger>
+              <TabsTrigger value="informational" className="gap-2">
+                <BookOpen className="h-4 w-4" />
+                Informational
+              </TabsTrigger>
+            </TabsList>
 
         {/* Tab 1: AI Personas */}
         <TabsContent value="personas" className="space-y-4">
@@ -394,6 +480,155 @@ export default function AIStringsManager() {
                 onBusinessChange={setSelectedBusiness}
               />
             </div>
+          </div>
+        </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        {/* Tab 2: Knowledge & Facts */}
+        <TabsContent value="knowledge" className="space-y-6">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-muted-foreground">
+              Configure business knowledge for AI assistants
+            </p>
+            <Button 
+              onClick={handleSaveKnowledgeBase} 
+              disabled={savingKB || !hasKBChanges}
+            >
+              {savingKB ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              Save Knowledge Base
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Social Media Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Social Media</CardTitle>
+                <CardDescription>Links to your social media profiles</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Instagram className="h-4 w-4 text-pink-500" />
+                    Instagram
+                  </Label>
+                  <Input
+                    placeholder="https://instagram.com/yourbrand"
+                    value={knowledgeBase?.social_media.instagram || ""}
+                    onChange={(e) => updateKnowledgeBase("social_media", "instagram", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Facebook className="h-4 w-4 text-blue-600" />
+                    Facebook
+                  </Label>
+                  <Input
+                    placeholder="https://facebook.com/yourbrand"
+                    value={knowledgeBase?.social_media.facebook || ""}
+                    onChange={(e) => updateKnowledgeBase("social_media", "facebook", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Youtube className="h-4 w-4 text-red-500" />
+                    YouTube
+                  </Label>
+                  <Input
+                    placeholder="https://youtube.com/@yourbrand"
+                    value={knowledgeBase?.social_media.youtube || ""}
+                    onChange={(e) => updateKnowledgeBase("social_media", "youtube", e.target.value)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Location Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Location</CardTitle>
+                <CardDescription>Store address and operating hours</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    Store Address
+                  </Label>
+                  <Textarea
+                    placeholder="123 Main St, City, State, ZIP"
+                    value={knowledgeBase?.locations.store_address || ""}
+                    onChange={(e) => updateKnowledgeBase("locations", "store_address", e.target.value)}
+                    className="min-h-[80px]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    Operating Hours
+                  </Label>
+                  <Textarea
+                    placeholder="Mon-Fri: 9am-6pm, Sat: 10am-4pm"
+                    value={knowledgeBase?.locations.operating_hours || ""}
+                    onChange={(e) => updateKnowledgeBase("locations", "operating_hours", e.target.value)}
+                    className="min-h-[80px]"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Policies Card - Full Width */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-lg">Store Policies</CardTitle>
+                <CardDescription>Shipping, returns, and exchange policies for AI to reference</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Truck className="h-4 w-4 text-muted-foreground" />
+                      Shipping Policy
+                    </Label>
+                    <Textarea
+                      placeholder="Enter shipping policy details..."
+                      value={knowledgeBase?.policies.shipping || ""}
+                      onChange={(e) => updateKnowledgeBase("policies", "shipping", e.target.value)}
+                      className="min-h-[150px]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <RotateCw className="h-4 w-4 text-muted-foreground" />
+                      Return Policy
+                    </Label>
+                    <Textarea
+                      placeholder="Enter return policy details..."
+                      value={knowledgeBase?.policies.returns || ""}
+                      onChange={(e) => updateKnowledgeBase("policies", "returns", e.target.value)}
+                      className="min-h-[150px]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                      Exchange Policy
+                    </Label>
+                    <Textarea
+                      placeholder="Enter exchange policy details..."
+                      value={knowledgeBase?.policies.exchanges || ""}
+                      onChange={(e) => updateKnowledgeBase("policies", "exchanges", e.target.value)}
+                      className="min-h-[150px]"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>
