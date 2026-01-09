@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { apiRequest } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -95,7 +96,7 @@ export default function AIStringsManager() {
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeStringKey, setActiveStringKey] = useState<string | null>(null);
-  const [selectedBusiness, setSelectedBusiness] = useState<"feelori" | "golden">("feelori");
+  const { businessId: selectedBusiness, setBusinessId: setSelectedBusiness } = useBusiness();
   
   // Knowledge Base state
   const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBaseConfig | null>(null);

@@ -6,8 +6,8 @@ import { Eye, AlertTriangle } from "lucide-react";
 
 interface StringPreviewCardProps {
   activeString: { key: string; value: string } | null;
-  selectedBusiness: "feelori" | "golden";
-  onBusinessChange: (value: "feelori" | "golden") => void;
+  selectedBusiness: string;
+  onBusinessChange: (value: string) => void;
 }
 
 const ALLOWED_PLACEHOLDERS = [
@@ -103,7 +103,7 @@ export default function StringPreviewCard({
   selectedBusiness,
   onBusinessChange,
 }: StringPreviewCardProps) {
-  const context = MOCK_CONTEXT[selectedBusiness];
+  const context = MOCK_CONTEXT[selectedBusiness as keyof typeof MOCK_CONTEXT] || MOCK_CONTEXT.feelori;
 
   const { renderedPreview, warnings } = useMemo(() => {
     if (!activeString) {
@@ -200,7 +200,7 @@ export default function StringPreviewCard({
                     <div key={key}>
                       <code className="text-xs">{`{${key}}`}</code>
                       <span className="mx-1">→</span>
-                      <span className="text-muted-foreground">{value}</span>
+                      <span className="text-muted-foreground">{String(value)}</span>
                     </div>
                   ))}
                 </div>
