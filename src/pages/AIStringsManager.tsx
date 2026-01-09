@@ -13,9 +13,10 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { 
   Loader2, RotateCcw, Save, Search, Brain, Zap, BookOpen, Database,
-  Instagram, Facebook, Youtube, Truck, RotateCw, ArrowRightLeft, MapPin, Clock
+  Instagram, Facebook, Youtube, Truck, RotateCw, ArrowRightLeft, MapPin, Clock, Tag, X
 } from "lucide-react";
 import { toast } from "sonner";
 import StringPreviewCard from "@/components/strings/StringPreviewCard";
@@ -29,18 +30,38 @@ interface StringsResponse {
   strings: StringItem[];
 }
 
+interface KnowledgeEntry {
+  value: string;
+  triggers: string[];
+  enabled: boolean;
+}
+
 interface KnowledgeBaseConfig {
-  social_media: { instagram: string; facebook: string; youtube: string };
-  policies: { shipping: string; returns: string; exchanges: string };
+  social_media: Record<string, KnowledgeEntry>;
+  policies: Record<string, KnowledgeEntry>;
   locations: { store_address: string; operating_hours: string };
 }
 
 const PERSONA_KEYS = ["FEELORI_SYSTEM_PROMPT", "GOLDEN_SYSTEM_PROMPT"];
 const QUICK_RESPONSE_PREFIXES = ["ERROR_", "HUMAN_", "NO_ORDERS_", "ORDER_NUMBER_", "WELCOME_"];
 
+const createDefaultEntry = (value: string = ""): KnowledgeEntry => ({
+  value,
+  triggers: [],
+  enabled: true,
+});
+
 const DEFAULT_KNOWLEDGE_BASE: KnowledgeBaseConfig = {
-  social_media: { instagram: "", facebook: "", youtube: "" },
-  policies: { shipping: "", returns: "", exchanges: "" },
+  social_media: { 
+    instagram: createDefaultEntry(), 
+    facebook: createDefaultEntry(), 
+    youtube: createDefaultEntry() 
+  },
+  policies: { 
+    shipping: createDefaultEntry(), 
+    returns: createDefaultEntry(), 
+    exchanges: createDefaultEntry() 
+  },
   locations: { store_address: "", operating_hours: "" },
 };
 
@@ -131,19 +152,53 @@ export default function AIStringsManager() {
     }
   };
 
-  const updateKnowledgeBase = <K extends keyof KnowledgeBaseConfig>(
-    section: K,
-    field: keyof KnowledgeBaseConfig[K],
-    value: string
+  // Update nested KnowledgeEntry fields
+  const updateKnowledgeEntry = (
+    section: "social_media" | "policies",
+    field: string,
+    property: keyof KnowledgeEntry,
+    value: string | string[] | boolean
   ) => {
     if (!knowledgeBase) return;
+    const currentEntry = knowledgeBase[section][field] || createDefaultEntry();
     setKnowledgeBase({
       ...knowledgeBase,
       [section]: {
         ...knowledgeBase[section],
+        [field]: {
+          ...currentEntry,
+          [property]: value,
+        },
+      },
+    });
+  };
+
+  // Update location fields (simple strings)
+  const updateLocation = (field: "store_address" | "operating_hours", value: string) => {
+    if (!knowledgeBase) return;
+    setKnowledgeBase({
+      ...knowledgeBase,
+      locations: {
+        ...knowledgeBase.locations,
         [field]: value,
       },
     });
+  };
+
+  // Add trigger keyword
+  const addTrigger = (section: "social_media" | "policies", field: string, trigger: string) => {
+    if (!knowledgeBase || !trigger.trim()) return;
+    const currentEntry = knowledgeBase[section][field] || createDefaultEntry();
+    if (!currentEntry.triggers.includes(trigger.trim())) {
+      updateKnowledgeEntry(section, field, "triggers", [...currentEntry.triggers, trigger.trim()]);
+    }
+  };
+
+  // Remove trigger keyword
+  const removeTrigger = (section: "social_media" | "policies", field: string, trigger: string) => {
+    if (!knowledgeBase) return;
+    const currentEntry = knowledgeBase[section][field] || createDefaultEntry();
+    updateKnowledgeEntry(section, field, "triggers", currentEntry.triggers.filter(t => t !== trigger));
   };
 
   const hasKBChanges = useMemo(() => {
@@ -511,44 +566,44 @@ export default function AIStringsManager() {
                 <CardTitle className="text-lg">Social Media</CardTitle>
                 <CardDescription>Links to your social media profiles</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Instagram className="h-4 w-4 text-pink-500" />
-                    Instagram
-                  </Label>
-                  <Input
-                    placeholder="https://instagram.com/yourbrand"
-                    value={knowledgeBase?.social_media.instagram || ""}
-                    onChange={(e) => updateKnowledgeBase("social_media", "instagram", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Facebook className="h-4 w-4 text-blue-600" />
-                    Facebook
-                  </Label>
-                  <Input
-                    placeholder="https://facebook.com/yourbrand"
-                    value={knowledgeBase?.social_media.facebook || ""}
-                    onChange={(e) => updateKnowledgeBase("social_media", "facebook", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Youtube className="h-4 w-4 text-red-500" />
-                    YouTube
-                  </Label>
-                  <Input
-                    placeholder="https://youtube.com/@yourbrand"
-                    value={knowledgeBase?.social_media.youtube || ""}
-                    onChange={(e) => updateKnowledgeBase("social_media", "youtube", e.target.value)}
-                  />
-                </div>
+              <CardContent className="space-y-6">
+                {/* Instagram */}
+                <KnowledgeEntryField
+                  label="Instagram"
+                  icon={<Instagram className="h-4 w-4 text-pink-500" />}
+                  placeholder="https://instagram.com/yourbrand"
+                  entry={knowledgeBase?.social_media.instagram || createDefaultEntry()}
+                  onValueChange={(value) => updateKnowledgeEntry("social_media", "instagram", "value", value)}
+                  onEnabledChange={(enabled) => updateKnowledgeEntry("social_media", "instagram", "enabled", enabled)}
+                  onAddTrigger={(trigger) => addTrigger("social_media", "instagram", trigger)}
+                  onRemoveTrigger={(trigger) => removeTrigger("social_media", "instagram", trigger)}
+                />
+                {/* Facebook */}
+                <KnowledgeEntryField
+                  label="Facebook"
+                  icon={<Facebook className="h-4 w-4 text-blue-600" />}
+                  placeholder="https://facebook.com/yourbrand"
+                  entry={knowledgeBase?.social_media.facebook || createDefaultEntry()}
+                  onValueChange={(value) => updateKnowledgeEntry("social_media", "facebook", "value", value)}
+                  onEnabledChange={(enabled) => updateKnowledgeEntry("social_media", "facebook", "enabled", enabled)}
+                  onAddTrigger={(trigger) => addTrigger("social_media", "facebook", trigger)}
+                  onRemoveTrigger={(trigger) => removeTrigger("social_media", "facebook", trigger)}
+                />
+                {/* YouTube */}
+                <KnowledgeEntryField
+                  label="YouTube"
+                  icon={<Youtube className="h-4 w-4 text-red-500" />}
+                  placeholder="https://youtube.com/@yourbrand"
+                  entry={knowledgeBase?.social_media.youtube || createDefaultEntry()}
+                  onValueChange={(value) => updateKnowledgeEntry("social_media", "youtube", "value", value)}
+                  onEnabledChange={(enabled) => updateKnowledgeEntry("social_media", "youtube", "enabled", enabled)}
+                  onAddTrigger={(trigger) => addTrigger("social_media", "youtube", trigger)}
+                  onRemoveTrigger={(trigger) => removeTrigger("social_media", "youtube", trigger)}
+                />
               </CardContent>
             </Card>
 
-            {/* Location Card */}
+            {/* Location Card - Simple strings, no triggers */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Location</CardTitle>
@@ -563,7 +618,7 @@ export default function AIStringsManager() {
                   <Textarea
                     placeholder="123 Main St, City, State, ZIP"
                     value={knowledgeBase?.locations.store_address || ""}
-                    onChange={(e) => updateKnowledgeBase("locations", "store_address", e.target.value)}
+                    onChange={(e) => updateLocation("store_address", e.target.value)}
                     className="min-h-[80px]"
                   />
                 </div>
@@ -575,7 +630,7 @@ export default function AIStringsManager() {
                   <Textarea
                     placeholder="Mon-Fri: 9am-6pm, Sat: 10am-4pm"
                     value={knowledgeBase?.locations.operating_hours || ""}
-                    onChange={(e) => updateKnowledgeBase("locations", "operating_hours", e.target.value)}
+                    onChange={(e) => updateLocation("operating_hours", e.target.value)}
                     className="min-h-[80px]"
                   />
                 </div>
@@ -589,49 +644,159 @@ export default function AIStringsManager() {
                 <CardDescription>Shipping, returns, and exchange policies for AI to reference</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <Truck className="h-4 w-4 text-muted-foreground" />
-                      Shipping Policy
-                    </Label>
-                    <Textarea
-                      placeholder="Enter shipping policy details..."
-                      value={knowledgeBase?.policies.shipping || ""}
-                      onChange={(e) => updateKnowledgeBase("policies", "shipping", e.target.value)}
-                      className="min-h-[150px]"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <RotateCw className="h-4 w-4 text-muted-foreground" />
-                      Return Policy
-                    </Label>
-                    <Textarea
-                      placeholder="Enter return policy details..."
-                      value={knowledgeBase?.policies.returns || ""}
-                      onChange={(e) => updateKnowledgeBase("policies", "returns", e.target.value)}
-                      className="min-h-[150px]"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-                      Exchange Policy
-                    </Label>
-                    <Textarea
-                      placeholder="Enter exchange policy details..."
-                      value={knowledgeBase?.policies.exchanges || ""}
-                      onChange={(e) => updateKnowledgeBase("policies", "exchanges", e.target.value)}
-                      className="min-h-[150px]"
-                    />
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Shipping Policy */}
+                  <KnowledgeEntryField
+                    label="Shipping Policy"
+                    icon={<Truck className="h-4 w-4 text-muted-foreground" />}
+                    placeholder="Enter shipping policy details..."
+                    entry={knowledgeBase?.policies.shipping || createDefaultEntry()}
+                    onValueChange={(value) => updateKnowledgeEntry("policies", "shipping", "value", value)}
+                    onEnabledChange={(enabled) => updateKnowledgeEntry("policies", "shipping", "enabled", enabled)}
+                    onAddTrigger={(trigger) => addTrigger("policies", "shipping", trigger)}
+                    onRemoveTrigger={(trigger) => removeTrigger("policies", "shipping", trigger)}
+                    isTextarea
+                  />
+                  {/* Return Policy */}
+                  <KnowledgeEntryField
+                    label="Return Policy"
+                    icon={<RotateCw className="h-4 w-4 text-muted-foreground" />}
+                    placeholder="Enter return policy details..."
+                    entry={knowledgeBase?.policies.returns || createDefaultEntry()}
+                    onValueChange={(value) => updateKnowledgeEntry("policies", "returns", "value", value)}
+                    onEnabledChange={(enabled) => updateKnowledgeEntry("policies", "returns", "enabled", enabled)}
+                    onAddTrigger={(trigger) => addTrigger("policies", "returns", trigger)}
+                    onRemoveTrigger={(trigger) => removeTrigger("policies", "returns", trigger)}
+                    isTextarea
+                  />
+                  {/* Exchange Policy */}
+                  <KnowledgeEntryField
+                    label="Exchange Policy"
+                    icon={<ArrowRightLeft className="h-4 w-4 text-muted-foreground" />}
+                    placeholder="Enter exchange policy details..."
+                    entry={knowledgeBase?.policies.exchanges || createDefaultEntry()}
+                    onValueChange={(value) => updateKnowledgeEntry("policies", "exchanges", "value", value)}
+                    onEnabledChange={(enabled) => updateKnowledgeEntry("policies", "exchanges", "enabled", enabled)}
+                    onAddTrigger={(trigger) => addTrigger("policies", "exchanges", trigger)}
+                    onRemoveTrigger={(trigger) => removeTrigger("policies", "exchanges", trigger)}
+                    isTextarea
+                  />
                 </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// Reusable component for KnowledgeEntry fields
+interface KnowledgeEntryFieldProps {
+  label: string;
+  icon: React.ReactNode;
+  placeholder: string;
+  entry: KnowledgeEntry;
+  onValueChange: (value: string) => void;
+  onEnabledChange: (enabled: boolean) => void;
+  onAddTrigger: (trigger: string) => void;
+  onRemoveTrigger: (trigger: string) => void;
+  isTextarea?: boolean;
+}
+
+function KnowledgeEntryField({
+  label,
+  icon,
+  placeholder,
+  entry,
+  onValueChange,
+  onEnabledChange,
+  onAddTrigger,
+  onRemoveTrigger,
+  isTextarea = false,
+}: KnowledgeEntryFieldProps) {
+  const [triggerInput, setTriggerInput] = useState("");
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      if (triggerInput.trim()) {
+        onAddTrigger(triggerInput.trim());
+        setTriggerInput("");
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+      {/* Header with label and enabled toggle */}
+      <div className="flex items-center justify-between">
+        <Label className="flex items-center gap-2">
+          {icon}
+          {label}
+        </Label>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {entry.enabled ? "Enabled" : "Disabled"}
+          </span>
+          <Switch
+            checked={entry.enabled}
+            onCheckedChange={onEnabledChange}
+          />
+        </div>
+      </div>
+
+      {/* Value input */}
+      {isTextarea ? (
+        <Textarea
+          placeholder={placeholder}
+          value={entry.value}
+          onChange={(e) => onValueChange(e.target.value)}
+          className="min-h-[120px]"
+          disabled={!entry.enabled}
+        />
+      ) : (
+        <Input
+          placeholder={placeholder}
+          value={entry.value}
+          onChange={(e) => onValueChange(e.target.value)}
+          disabled={!entry.enabled}
+        />
+      )}
+
+      {/* Triggers section */}
+      <div className="space-y-2">
+        <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Tag className="h-3 w-3" />
+          Trigger Keywords
+        </Label>
+        <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+          {entry.triggers.map((trigger) => (
+            <Badge
+              key={trigger}
+              variant="secondary"
+              className="text-xs flex items-center gap-1 pr-1"
+            >
+              {trigger}
+              <button
+                type="button"
+                onClick={() => onRemoveTrigger(trigger)}
+                className="hover:bg-destructive/20 rounded-full p-0.5"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+        <Input
+          placeholder="Type keyword and press Enter..."
+          value={triggerInput}
+          onChange={(e) => setTriggerInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={!entry.enabled}
+          className="h-8 text-sm"
+        />
+      </div>
     </div>
   );
 }
