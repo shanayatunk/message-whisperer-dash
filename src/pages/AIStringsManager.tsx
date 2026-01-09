@@ -186,12 +186,16 @@ export default function AIStringsManager() {
     });
   };
 
-  // Add trigger keyword
-  const addTrigger = (section: "social_media" | "policies", field: string, trigger: string) => {
-    if (!knowledgeBase || !trigger.trim()) return;
+  // Add trigger keyword(s) - supports single string or array
+  const addTrigger = (section: "social_media" | "policies", field: string, trigger: string | string[]) => {
+    if (!knowledgeBase) return;
     const currentEntry = knowledgeBase[section][field] || createDefaultEntry();
-    if (!currentEntry.triggers.includes(trigger.trim())) {
-      updateKnowledgeEntry(section, field, "triggers", [...currentEntry.triggers, trigger.trim()]);
+    const triggersToAdd = Array.isArray(trigger) ? trigger : [trigger];
+    const newTriggers = triggersToAdd
+      .map(t => t.trim())
+      .filter(t => t.length > 0 && !currentEntry.triggers.includes(t));
+    if (newTriggers.length > 0) {
+      updateKnowledgeEntry(section, field, "triggers", [...currentEntry.triggers, ...newTriggers]);
     }
   };
 
@@ -700,7 +704,7 @@ interface KnowledgeEntryFieldProps {
   entry: KnowledgeEntry;
   onValueChange: (value: string) => void;
   onEnabledChange: (enabled: boolean) => void;
-  onAddTrigger: (trigger: string) => void;
+  onAddTrigger: (trigger: string | string[]) => void;
   onRemoveTrigger: (trigger: string) => void;
   isTextarea?: boolean;
 }
@@ -718,16 +722,18 @@ function KnowledgeEntryField({
 }: KnowledgeEntryFieldProps) {
   const [triggerInput, setTriggerInput] = useState("");
 
-  // Add multiple triggers at once, splitting by comma
-  const addMultipleTriggers = (text: string) => {
-    const triggers = text.split(",").map(t => t.trim()).filter(t => t.length > 0);
-    triggers.forEach(trigger => onAddTrigger(trigger));
+  // Parse and add triggers from text (comma-separated)
+  const parseTriggers = (text: string): string[] => {
+    return text.split(",").map(t => t.trim()).filter(t => t.length > 0);
   };
 
-  // Commit the current input as a trigger
+  // Commit the current input as trigger(s)
   const commitTrigger = () => {
     if (triggerInput.trim()) {
-      addMultipleTriggers(triggerInput);
+      const triggers = parseTriggers(triggerInput);
+      if (triggers.length > 0) {
+        onAddTrigger(triggers);
+      }
       setTriggerInput("");
     }
   };
@@ -744,7 +750,10 @@ function KnowledgeEntryField({
     // If pasted text contains commas, handle it specially
     if (pastedText.includes(",")) {
       e.preventDefault();
-      addMultipleTriggers(pastedText);
+      const triggers = parseTriggers(pastedText);
+      if (triggers.length > 0) {
+        onAddTrigger(triggers);
+      }
     }
   };
 
