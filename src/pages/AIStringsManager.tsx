@@ -116,7 +116,7 @@ export default function AIStringsManager() {
       
       // Fetch knowledge base
       try {
-        const kbResponse = await apiRequest<{ data: KnowledgeBaseConfig }>(`/api/settings/knowledge-base/${selectedBusiness}`);
+        const kbResponse = await apiRequest<{ data: KnowledgeBaseConfig }>(`/api/v1/knowledge-base/${selectedBusiness}`);
         const kbData = kbResponse.data || DEFAULT_KNOWLEDGE_BASE;
         setKnowledgeBase(kbData);
         setOriginalKnowledgeBase(kbData);
@@ -138,7 +138,7 @@ export default function AIStringsManager() {
     
     setSavingKB(true);
     try {
-      await apiRequest(`/api/settings/knowledge-base/${selectedBusiness}`, {
+      await apiRequest(`/api/v1/knowledge-base/${selectedBusiness}`, {
         method: "PATCH",
         body: JSON.stringify(knowledgeBase),
       });
