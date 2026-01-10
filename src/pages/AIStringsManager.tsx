@@ -112,8 +112,11 @@ export default function AIStringsManager() {
     try {
       // Fetch strings
       const stringsResponse = await apiRequest<{ data: { strings: StringItem[] } }>("/api/v1/admin/strings");
-      setStrings(stringsResponse.data?.strings || []);
-      setOriginalStrings(stringsResponse.data?.strings || []);
+      const filteredStrings = (stringsResponse.data?.strings || []).filter(
+        (item: StringItem) => item.key !== 'PACKING_DEPT_REDIRECT'
+      );
+      setStrings(filteredStrings);
+      setOriginalStrings(filteredStrings);
       
       // Fetch knowledge base
       try {
