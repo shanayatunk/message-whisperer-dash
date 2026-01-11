@@ -51,6 +51,8 @@ const generateId = (title: string, prefix: string): string => {
 const MAX_GREETING_ITEMS = 3;
 const MAX_SHOP_CATEGORIES = 10;
 
+const RESERVED_IDS = ["menu_shop_now", "menu_track_order", "menu_support"];
+
 export default function WhatsAppMenuConfig() {
   const { businessId } = useBusiness();
   const [loading, setLoading] = useState(true);
@@ -90,6 +92,10 @@ export default function WhatsAppMenuConfig() {
         toast.error("All greeting menu items must have a title");
         return false;
       }
+      if (RESERVED_IDS.includes(item.id)) {
+        toast.error(`ID "${item.id}" is reserved for system use. Please choose a different ID.`);
+        return false;
+      }
     }
     for (const cat of shopCategories) {
       if (!cat.title.trim()) {
@@ -98,6 +104,10 @@ export default function WhatsAppMenuConfig() {
       }
       if (!cat.shopify_action.value.trim()) {
         toast.error(`Shop category "${cat.title}" is missing a value`);
+        return false;
+      }
+      if (RESERVED_IDS.includes(cat.id)) {
+        toast.error(`ID "${cat.id}" is reserved for system use. Please choose a different ID.`);
         return false;
       }
     }
