@@ -147,9 +147,6 @@ export default function WhatsAppMenuConfig() {
   const updateGreetingItem = (index: number, field: keyof GreetingMenuItem, value: string) => {
     const updated = [...greetingMenu];
     updated[index] = { ...updated[index], [field]: value };
-    if (field === "title" && !updated[index].id.includes("_edited")) {
-      updated[index].id = generateId(value, "menu");
-    }
     setGreetingMenu(updated);
   };
 
@@ -186,9 +183,6 @@ export default function WhatsAppMenuConfig() {
   ) => {
     const updated = [...shopCategories];
     updated[index] = { ...updated[index], [field]: value };
-    if (field === "title") {
-      updated[index].id = generateId(value, "cat");
-    }
     setShopCategories(updated);
   };
 
