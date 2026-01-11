@@ -51,7 +51,13 @@ const generateId = (title: string, prefix: string): string => {
 const MAX_GREETING_ITEMS = 3;
 const MAX_SHOP_CATEGORIES = 10;
 
-const RESERVED_IDS = ["menu_shop_now", "menu_track_order", "menu_support"];
+const SYSTEM_IDS = ["menu_shop_now", "menu_track_order", "menu_support"];
+
+const DEFAULT_GREETING_MENU: GreetingMenuItem[] = [
+  { id: "menu_shop_now", title: "🛍️ Shop Now" },
+  { id: "menu_track_order", title: "📦 Track Order" },
+  { id: "menu_support", title: "💬 Support" },
+];
 
 export default function WhatsAppMenuConfig() {
   const { businessId } = useBusiness();
@@ -72,7 +78,13 @@ export default function WhatsAppMenuConfig() {
       );
       const data = response.data;
       setConfig(data);
-      setGreetingMenu(data?.whatsapp_greeting_menu || []);
+      // Pre-fill with defaults if greeting menu is empty
+      const greetingData = data?.whatsapp_greeting_menu;
+      setGreetingMenu(
+        greetingData && greetingData.length > 0 
+          ? greetingData 
+          : DEFAULT_GREETING_MENU
+      );
       setShopCategories(data?.whatsapp_shop_categories || []);
     } catch (error) {
       console.error("Failed to fetch config:", error);
@@ -92,10 +104,6 @@ export default function WhatsAppMenuConfig() {
         toast.error("All greeting menu items must have a title");
         return false;
       }
-      if (RESERVED_IDS.includes(item.id)) {
-        toast.error(`ID "${item.id}" is reserved for system use. Please choose a different ID.`);
-        return false;
-      }
     }
     for (const cat of shopCategories) {
       if (!cat.title.trim()) {
@@ -106,13 +114,11 @@ export default function WhatsAppMenuConfig() {
         toast.error(`Shop category "${cat.title}" is missing a value`);
         return false;
       }
-      if (RESERVED_IDS.includes(cat.id)) {
-        toast.error(`ID "${cat.id}" is reserved for system use. Please choose a different ID.`);
-        return false;
-      }
     }
     return true;
   };
+
+  const isSystemId = (id: string): boolean => SYSTEM_IDS.includes(id);
 
   const handleSave = async () => {
     if (!validateConfig()) return;
@@ -304,7 +310,14 @@ export default function WhatsAppMenuConfig() {
                       />
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">ID (auto-generated)</Label>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground">ID</Label>
+                        {isSystemId(item.id) && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-500 text-amber-600 dark:text-amber-400">
+                            System ID
+                          </Badge>
+                        )}
+                      </div>
                       <Input
                         value={item.id}
                         onChange={(e) => updateGreetingItem(index, "id", e.target.value)}
@@ -392,7 +405,14 @@ export default function WhatsAppMenuConfig() {
                           />
                         </div>
                         <div>
-                          <Label className="text-xs text-muted-foreground">ID</Label>
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs text-muted-foreground">ID</Label>
+                            {isSystemId(cat.id) && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-500 text-amber-600 dark:text-amber-400">
+                                System ID
+                              </Badge>
+                            )}
+                          </div>
                           <Input
                             value={cat.id}
                             onChange={(e) => updateShopCategory(index, "id", e.target.value)}
