@@ -13,6 +13,7 @@ import Conversations from "@/pages/Conversations";
 import Broadcasts from "@/pages/Broadcasts";
 import PackingPage from "@/pages/PackingPage";
 import AIStringsManager from "@/pages/AIStringsManager";
+import WhatsAppMenuConfig from "@/pages/WhatsAppMenuConfig";
 import NotFound from "@/pages/NotFound";
 import Debug from "@/pages/Debug";
 const queryClient = new QueryClient({
@@ -90,6 +91,16 @@ const App = () => (
                   <ProtectedRoute>
                     <DashboardLayout>
                       <AIStringsManager />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/whatsapp-menu"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout>
+                      <WhatsAppMenuConfig />
                     </DashboardLayout>
                   </ProtectedRoute>
                 }
