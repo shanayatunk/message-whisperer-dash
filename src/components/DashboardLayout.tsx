@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, MessageSquare, Radio, Package, LogOut, Menu, Settings2 } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Radio, Package, LogOut, Menu, Settings2, MessageCircle } from "lucide-react";
 import { BusinessSelector } from "@/components/cockpit/BusinessSelector";
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { path: "/conversations", label: "Conversations", icon: MessageSquare },
   { path: "/broadcasts", label: "Broadcasts", icon: Radio },
   { path: "/packing", label: "Packing", icon: Package },
+  { path: "/whatsapp-menu", label: "WhatsApp Menu", icon: MessageCircle },
   { path: "/ai-strings", label: "AI & Strings", icon: Settings2 },
 ];
 
